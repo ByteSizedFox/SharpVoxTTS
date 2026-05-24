@@ -1,4 +1,4 @@
-# SharpTalk
+# FoxTalk
 a cool experimental formant TTS based on old TTS papers
 
 # Note
