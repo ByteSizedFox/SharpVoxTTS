@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RuntimeIdentifier>browser-wasm</RuntimeIdentifier>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>SharpTalk.WebUi</RootNamespace>
+    <AssemblyName>SharpTalk.WebUi</AssemblyName>
+    <RunAOTCompilation>true</RunAOTCompilation>
+    <PublishTrimmed>true</PublishTrimmed>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <WasmEnableExceptionHandling>true</WasmEnableExceptionHandling>
+    <WasmEnableSIMD>true</WasmEnableSIMD>
+    <WasmMainJSPath>wwwroot/js/main.js</WasmMainJSPath>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Text.Encoding.CodePages" Version="10.0.7" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\SharpTalk.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <WasmExtraFilesToDeploy Include="wwwroot\**\*" />
+  </ItemGroup>
+
+  <Target Name="CopyVoicesToAppBundle" AfterTargets="_WasmGenerateAppBundle">
+    <ItemGroup>
+      <_VoiceJsonFiles Include="$(MSBuildThisFileDirectory)..\..\voices\*.json" />
+    </ItemGroup>
+    <MakeDir Directories="$(OutputPath)AppBundle/voices" />
+    <Copy SourceFiles="@(_VoiceJsonFiles)" DestinationFolder="$(OutputPath)AppBundle/voices" />
+  </Target>
+
+</Project>

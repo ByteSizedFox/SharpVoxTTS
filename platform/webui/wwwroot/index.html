@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SharpTalk WebUI</title>
+    <link rel="icon" type="image/x-icon" href="/sharptalk/favicon.ico" />
+    <base href="/sharptalk/" />
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.176.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.176.0/examples/jsm/"
+      }
+    }
+    </script>
+    <style>
+        :root { --bg:#141414; --panel:#1d1d1d; --line:#333; --fg:#d6d6d6; --dim:#888; --accent:#3b82f6; }
+        * { box-sizing: border-box; }
+        html, body { margin: 0; padding: 0; background: var(--bg); color: var(--fg); line-height: 1.4; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        .app-wrap { display: flex; gap: 24px; padding: 20px; max-width: 1300px; margin: 0 auto; align-items: flex-start; }
+        .left { width: 640px; min-width: 640px; flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; }
+        .right { flex: 1 1 auto; min-width: 360px; max-height: calc(100vh - 40px); overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 4px; }
+        h1 { font-size: 2rem; margin: 0 0 2px; font-weight: 700; letter-spacing: -0.03em; color: var(--fg); }
+        .subtitle { color: var(--dim); font-size: 0.82rem; margin: 0; }
+        .tabs { display: flex; border: 1px solid var(--line); border-radius: 2px; overflow: hidden; }
+        .tab-btn { flex: 1; padding: 6px 0; background: var(--panel); color: var(--dim); border: none; cursor: pointer; font: inherit; font-size: 0.82rem; letter-spacing: 0.05em; }
+        .tab-btn:hover { color: var(--fg); }
+        .tab-btn.active { background: var(--accent); color: #000; font-weight: 700; }
+        textarea { width: 100%; height: 140px; background: #0c0c0c; color: var(--fg); border: 1px solid var(--line); border-radius: 2px; padding: 8px; font-family: ui-monospace, "Cascadia Code", "Fira Mono", monospace; font-size: 0.88rem; resize: vertical; line-height: 1.55; display: block; }
+        textarea:focus { outline: none; border-color: var(--accent); }
+        button { background: #262626; color: var(--fg); border: 1px solid var(--line); border-radius: 2px; padding: 4px 10px; font: inherit; font-size: 0.82rem; cursor: pointer; }
+        button:hover { border-color: var(--accent); color: #fff; }
+        button:active { background: #1a1a1a; }
+        button:disabled { opacity: 0.4; cursor: not-allowed; }
+        .speak-btn { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 700; padding: 5px 18px; font-size: 0.88rem; }
+        .speak-btn:hover { background: #60a5fa; border-color: #60a5fa; color: #000; }
+        select { background: #262626; color: var(--fg); border: 1px solid var(--line); border-radius: 2px; padding: 4px 8px; font: inherit; font-size: 0.82rem; }
+        .controls-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+        .status { font-size: 0.72rem; color: var(--dim); min-height: 1em; }
+        fieldset { border: 1px solid var(--line); background: var(--panel); margin: 0; padding: 8px 10px 10px; border-radius: 2px; }
+        legend { padding: 0 5px; color: var(--dim); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; }
+        .slider-group { display: flex; align-items: center; font-size: 0.8rem; margin-bottom: 4px; }
+        .slider-group label { width: 126px; flex-shrink: 0; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .slider-group input[type=range] { flex: 1; margin: 0 8px; min-width: 50px; accent-color: var(--accent); }
+        .slider-group span { width: 48px; text-align: right; flex-shrink: 0; font-size: 0.78rem; }
+        .description-box { padding: 10px; border: 1px solid var(--line); font-size: 0.78rem; background: var(--panel); border-radius: 2px; min-height: 70px; color: var(--dim); }
+        .description-box strong { color: var(--fg); display: block; margin-bottom: 3px; }
+        .phoneme-tracker { display: flex; flex-wrap: wrap; gap: 3px; padding: 7px; border: 1px solid var(--line); background: #0c0c0c; border-radius: 2px; min-height: 38px; }
+        .phon { padding: 1px 5px; border: 1px solid transparent; border-radius: 2px; font-size: 0.72rem; color: #555; }
+        .phon.active { border-color: var(--accent); color: #fff; background: rgba(59,130,246,0.15); }
+        .phon-grid { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 5px; }
+        .phon-grid button { min-width: 40px; font-size: 0.75rem; padding: 2px 4px; }
+        details { font-size: 0.8rem; }
+        details summary { cursor: pointer; color: var(--dim); padding: 3px 0; user-select: none; }
+        details summary:hover { color: var(--fg); }
+        details pre { background: #0c0c0c; border: 1px solid var(--line); border-radius: 2px; padding: 8px; margin-top: 5px; overflow-x: auto; font-size: 0.75rem; line-height: 1.45; color: var(--dim); white-space: pre-wrap; }
+        .preset-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+        .preset-row label { color: var(--dim); font-size: 0.8rem; }
+        
+        #logic { display: none; }
+        .kl-only { display: none; }
+
+        .site-header { background: var(--panel); border-bottom: 1px solid var(--line); padding: 8px 20px; display: flex; align-items: center; gap: 20px; }
+        .site-header a { color: var(--dim); font-size: 0.8rem; text-decoration: none; }
+        .site-header a:hover { color: var(--fg); }
+
+        .ff-only {
+            display: none;
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            width: 120px;
+            z-index: 9999;
+            pointer-events: none;
+            opacity: 0.8;
+        }
+        @-moz-document url-prefix() {
+            .ff-only { display: block; }
+        }
+    </style>
+</head>
+<body>
+    <header class="site-header">
+        <a href="https://tgies.github.io/klattsch/" target="_blank" rel="noopener">KLATTSCH</a>
+        <a href="https://discord.gg/DGefKB4M6c" target="_blank" rel="noopener">Discord</a>
+        <a href="https://github.com/bytesizedfox" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://ziodynes098.carrd.co/" target="_blank" rel="noopener">Lipsync Model Maker</a>
+    </header>
+    <div class="app-wrap">
+        <div class="left">
+            <div>
+                <h1>SharpTalk</h1>
+            </div>
+
+            <div class="tabs">
+                <button id="tab-tts" class="tab-btn active" onclick="ui.setMode('tts')">Text To Speech</button>
+                <button id="tab-klattsch" class="tab-btn" onclick="ui.setMode('klattsch')">KLATTSCH Mode</button>
+                <button id="tab-ust" class="tab-btn" onclick="ui.setMode('ust')">UST Converter</button>
+            </div>
+
+            <textarea id="inputText" spellcheck="false" placeholder="Enter text to speak...">Hello, my name is SharpTalk.</textarea>
+
+            <div id="ust-panel" class="ust-only" style="display:none">
+                <fieldset>
+                    <legend>ust conversion</legend>
+                    <div style="display:flex; flex-direction:column; gap:8px;">
+                        <div class="controls-row">
+                            <button onclick="ui.triggerFileInput('ustFile')">Select .ust file</button>
+                            <input type="file" id="ustFile" style="display:none" onchange="ui.onUstFileSelected()" accept=".ust" />
+                            <span id="ustFileName" style="font-size:0.75rem; color:var(--dim)">no file selected</span>
+                        </div>
+                        <div class="controls-row">
+                            <label style="font-size:0.8rem; color:var(--dim)">Language:</label>
+                            <select id="ustLanguage">
+                                <option value="auto">Auto-detect</option>
+                                <option value="vcc_english">VCC English</option>
+                                <option value="japanese">Japanese</option>
+                                <option value="english">English</option>
+                                <option value="xsampa">X-SAMPA</option>
+                                <option value="ipa">IPA</option>
+                                <option value="arpa">ARPAbet</option>
+                                <option value="arpa_jp">ARPAbet (JP)</option>
+                            </select>
+                            <label style="font-size:0.8rem; color:var(--dim); margin-left:10px;">Offset:</label>
+                            <input type="number" id="ustOffset" value="0" style="width:50px; background:#262626; color:var(--fg); border:1px solid var(--line); border-radius:2px; font-size:0.82rem;" />
+                            <label style="font-size:0.8rem; color:var(--dim); margin-left:10px;">Bank:</label>
+                            <select id="ustBank">
+                                <option value="none">None (Default)</option>
+                                <option value="ja-mokhtari-2000">Japanese (Mokhtari)</option>
+                                <option value="klatt1980-en">English (Klatt1980)</option>
+                            </select>
+                            <label style="font-size:0.8rem; color:var(--dim); margin-left:10px; display:flex; align-items:center; gap:4px;">
+                                <input type="checkbox" id="ustCompat" />
+                                Compatibility Mode
+                            </label>
+                        </div>
+                        <button class="speak-btn" onclick="ui.convertUst()">CONVERT TO KLATTSCH</button>
+                    </div>
+                </fieldset>
+                
+                <div style="margin-top:10px;">
+                    <label style="font-size:0.75rem; color:var(--dim); text-transform:uppercase; letter-spacing:0.05em;">Diagnostics</label>
+                    <pre id="ustDiagnostics" style="background:#0c0c0c; border:1px solid var(--line); border-radius:2px; padding:8px; margin-top:4px; font-size:0.75rem; line-height:1.45; color:var(--dim); min-height:40px; white-space:pre-wrap;"></pre>
+                </div>
+            </div>
+
+            <details class="kl-only" style="display:none">
+                <summary>syntax reference</summary>
+                <pre>tokens (whitespace-separated)
+  PHONEME              ARPABET code (AY IH AA S ...)
+  PHONEME!             stressed (+8 Hz lift, longer duration)
+  PHONEME+N            rising glide N Hz (pitch sticks)
+  PHONEME-N            falling glide N Hz (pitch sticks)
+  PHONEME(+N)          transient ornament, pitch reverts after
+  ( PHONEMES )         syllable group: share one rate slot
+  ,  ;  .              pause 100 / 200 / 300 ms
+  bN  b=N  bC4         set base F0 in Hz or note name
+  b+N  b-N             relative F0 shift
+  b                    reset base F0
+  rN                   set rate (ms/phoneme)
+  r                    reset rate
+  pN                   insert exact N-ms pause
+  vN  wN               vibrato depth Hz / rate Hz
+  hN                   breathiness 0–1
+  tN                   spectral tilt -0.9 (dark) .. +0.9 (bright)
+  gN                   vocal effort 0–1 (0.5 default)
+  # rest of line       comment</pre>
+            </details>
+
+            <div class="controls-row">
+                <button class="speak-btn" onclick="ui.speak()">SPEAK</button>
+                <button onclick="ui.stop()">STOP</button>
+                <select id="sampleRate" onchange="ui.onParamInput('sampleRate', this.value)">
+                    <option value="8000">8000 Hz</option>
+                    <option value="11025">11025 Hz</option>
+                    <option value="22050">22050 Hz</option>
+                    <option value="44100">44100 Hz</option>
+                    <option value="48000">48000 Hz</option>
+                    <option value="96000">96000 Hz</option>
+                </select>
+                <button id="downloadBtn" onclick="ui.downloadWav()">DOWNLOAD WAV</button>
+                <select id="lipsyncMode" title="Lipsync style for video export">
+                    <option value="ziofox">zioFox</option>
+                    <option value="ziowolf">zioWolf</option>
+                    <option value="ziokitsune">zioKitsune</option>
+                    <option value="ziogoat">zioGoat</option>
+                    <option value="zioredpanda">zioRedPanda</option>
+                    <option value="ziodeer">zioDeer</option>
+                    <option value="ziocat">zioCat</option>
+                </select>
+                <button id="videoBtn" onclick="ui.renderVideo()">VIDEO</button>
+            </div>
+
+            <div id="status" class="status">ready</div>
+
+            <div id="phoneme-tracker" class="phoneme-tracker"></div>
+
+            <fieldset class="kl-only" style="display:none">
+                <legend>audition phonemes</legend>
+                <div class="phon-grid">
+                    <button onclick="ui.auditionPhoneme('IY')">IY</button>
+                    <button onclick="ui.auditionPhoneme('IH')">IH</button>
+                    <button onclick="ui.auditionPhoneme('EH')">EH</button>
+                    <button onclick="ui.auditionPhoneme('AE')">AE</button>
+                    <button onclick="ui.auditionPhoneme('AA')">AA</button>
+                    <button onclick="ui.auditionPhoneme('AO')">AO</button>
+                    <button onclick="ui.auditionPhoneme('AH')">AH</button>
+                    <button onclick="ui.auditionPhoneme('UH')">UH</button>
+                    <button onclick="ui.auditionPhoneme('UW')">UW</button>
+                    <button onclick="ui.auditionPhoneme('ER')">ER</button>
+                    <button onclick="ui.auditionPhoneme('AY')">AY</button>
+                    <button onclick="ui.auditionPhoneme('AW')">AW</button>
+                    <button onclick="ui.auditionPhoneme('EY')">EY</button>
+                    <button onclick="ui.auditionPhoneme('OW')">OW</button>
+                    <button onclick="ui.auditionPhoneme('OY')">OY</button>
+                    <button onclick="ui.auditionPhoneme('W')">W</button>
+                    <button onclick="ui.auditionPhoneme('Y')">Y</button>
+                    <button onclick="ui.auditionPhoneme('R')">R</button>
+                    <button onclick="ui.auditionPhoneme('L')">L</button>
+                    <button onclick="ui.auditionPhoneme('M')">M</button>
+                    <button onclick="ui.auditionPhoneme('N')">N</button>
+                    <button onclick="ui.auditionPhoneme('NG')">NG</button>
+                    <button onclick="ui.auditionPhoneme('HH')">HH</button>
+                    <button onclick="ui.auditionPhoneme('F')">F</button>
+                    <button onclick="ui.auditionPhoneme('TH')">TH</button>
+                    <button onclick="ui.auditionPhoneme('S')">S</button>
+                    <button onclick="ui.auditionPhoneme('SH')">SH</button>
+                    <button onclick="ui.auditionPhoneme('V')">V</button>
+                    <button onclick="ui.auditionPhoneme('DH')">DH</button>
+                    <button onclick="ui.auditionPhoneme('Z')">Z</button>
+                    <button onclick="ui.auditionPhoneme('ZH')">ZH</button>
+                    <button onclick="ui.auditionPhoneme('P')">P</button>
+                    <button onclick="ui.auditionPhoneme('B')">B</button>
+                    <button onclick="ui.auditionPhoneme('T')">T</button>
+                    <button onclick="ui.auditionPhoneme('D')">D</button>
+                    <button onclick="ui.auditionPhoneme('K')">K</button>
+                    <button onclick="ui.auditionPhoneme('G')">G</button>
+                    <button onclick="ui.auditionPhoneme('CH')">CH</button>
+                    <button onclick="ui.auditionPhoneme('JH')">JH</button>
+                </div>
+            </fieldset>
+
+            <div class="description-box">
+                <strong id="activeTitle"></strong>
+                <span id="activeDesc">hover a parameter for details</span>
+            </div>
+        </div>
+
+        <div class="right">
+            <fieldset>
+                <legend>preset</legend>
+                <div class="preset-row">
+                    <select id="presetSelect" onchange="ui.onPresetChange(this.value)" style="flex:1; min-width:100px;">
+                        <option value="baseline">Baseline</option>
+                        <option value="beth">Beth</option>
+                        <option value="chris">Chris</option>
+                        <option value="deborah">Deborah</option>
+                        <option value="jack">Jack</option>
+                        <option value="jess">Jess</option>
+                        <option value="john">John</option>
+                        <option value="matt">Matt</option>
+                        <option value="Tommy">Tommy</option>
+                        <option value="whisper">Whisper</option>
+                        <option value="pirate">Pirate</option>
+                        <option value="custom" style="color:var(--dim)">Custom</option>
+                    </select>
+                    <label>
+                        <input type="checkbox" id="voice-female" onchange="ui.toggleFemale(this.checked)" />
+                        Female
+                    </label>
+                    <button onclick="ui.exportPreset()">Export</button>
+                    <button onclick="ui.importPreset()">Import</button>
+                    <input type="file" id="importFile" style="display:none" onchange="ui.handleImport()" accept=".json" />
+                </div>
+            </fieldset>
+
+            <fieldset class="kl-only" style="display:none">
+                <legend>klattsch defaults</legend>
+                <div class="slider-group" onmouseover="ui.updateDesc('Base F0 (Hz)', 'Starting fundamental frequency in Hz')">
+                    <label>Base F0 (Hz)</label>
+                    <input type="range" min="70" max="320" value="120" id="v-klBaseF0" oninput="ui.onParamInput('klBaseF0', this.value)">
+                    <span id="v-klBaseF0-val">120</span>
+                </div>
+                <div class="slider-group" onmouseover="ui.updateDesc('Rate (ms)', 'Milliseconds per phoneme slot')">
+                    <label>Rate (ms)</label>
+                    <input type="range" min="60" max="500" value="110" id="v-klRate" oninput="ui.onParamInput('klRate', this.value)">
+                    <span id="v-klRate-val">110</span>
+                </div>
+                <div class="slider-group" onmouseover="ui.updateDesc('Vibrato (Hz)', 'Vibrato depth: peak deviation in Hz (0 = off)')">
+                    <label>Vibrato (Hz)</label>
+                    <input type="range" min="0" max="15" step="0.5" value="0" id="v-klVibrato" oninput="ui.onParamInput('klVibrato', this.value, true)">
+                    <span id="v-klVibrato-val">0</span>
+                </div>
+                <div class="slider-group" onmouseover="ui.updateDesc('Vib Rate (Hz)', 'Vibrato LFO rate in Hz (default 5)')">
+                    <label>Vib Rate (Hz)</label>
+                    <input type="range" min="2" max="10" step="0.1" value="5" id="v-klVibRate" oninput="ui.onParamInput('klVibRate', this.value, true)">
+                    <span id="v-klVibRate-val">5</span>
+                </div>
+                <div class="slider-group" onmouseover="ui.updateDesc('Breathiness', 'Aspiration/breath mix, 0–1')">
+                    <label>Breathiness</label>
+                    <input type="range" min="0" max="1" step="0.01" value="0" id="v-klAsp" oninput="ui.onParamInput('klAsp', this.value, true)">
+                    <span id="v-klAsp-val">0</span>
+                </div>
+                <div class="slider-group" onmouseover="ui.updateDesc('Spectral Tilt', 'Spectral tilt: negative=darker, positive=brighter')">
+                    <label>Spectral Tilt</label>
+                    <input type="range" min="-0.9" max="0.9" step="0.01" value="0" id="v-klTilt" oninput="ui.onParamInput('klTilt', this.value, true)">
+                    <span id="v-klTilt-val">0</span>
+                </div>
+                <div class="slider-group" onmouseover="ui.updateDesc('Effort', 'Vocal effort: 0=lax, 1=tense (0.5 default)')">
+                    <label>Effort</label>
+                    <input type="range" min="0" max="1" step="0.01" value="0.5" id="v-klEffort" oninput="ui.onParamInput('klEffort', this.value, true)">
+                    <span id="v-klEffort-val">0.5</span>
+                </div>
+            </fieldset>
+
+            <fieldset>
+                <legend>playback</legend>
+                <div class="slider-group" onmouseover="ui.updateDesc('Rate', 'Speaking rate (words per minute)')">
+                    <label>Rate</label>
+                    <input type="range" min="40" max="600" value="160" id="v-Rate" oninput="ui.onParamInput('Rate', this.value)">
+                    <span id="v-Rate-val">160</span>
+                </div>
+                <div class="slider-group" onmouseover="ui.updateDesc('OutputVolume', 'Overall output volume (0.1 to 5.0)')">
+                    <label>Volume</label>
+                    <input type="range" min="0.1" max="5.0" step="0.1" value="1.0" id="v-OutputVolume" oninput="ui.onParamInput('OutputVolume', this.value, true)">
+                    <span id="v-OutputVolume-val">1.0</span>
+                </div>
+            </fieldset>
+
+            <fieldset>
+                <legend>voice</legend>
+                <div class="slider-group" onmouseover="ui.updateDesc('PitchHz', 'Fundamental pitch in Hz')">
+                    <label>PitchHz</label>
+                    <input type="range" min="40" max="500" value="104" id="v-PitchHz" oninput="ui.onParamInput('PitchHz', this.value)">
+                    <span id="v-PitchHz-val">104</span>
+                </div>
+                <div class="slider-group" onmouseover="ui.updateDesc('PitchOffsetHz', 'F0 offset in Hz — shifts fundamental frequency up or down for all speech and singing. Use to transpose a voice or force singing notes lower/higher.')">
+                    <label>PitchOffsetHz</label>
+                    <input type="range" min="-200" max="200" value="0" id="v-PitchOffsetHz" oninput="ui.onParamInput('PitchOffsetHz', this.value)">
+                    <span id="v-PitchOffsetHz-val">0</span>
+                </div>
+                <div class="slider-group" onmouseover="ui.updateDesc('TractScale', 'Vocal tract scale — &lt;1 larger/deeper, &gt;1 smaller/brighter')">
+                    <label>TractScale</label>
+                    <input type="range" min="0.5" max="2.0" step="0.01" value="1.0" id="v-TractScale" oninput="ui.onParamInput('TractScale', this.value, true)">
+                    <span id="v-TractScale-val">1</span>
+                </div>
+                <div class="slider-group" onmouseover="ui.updateDesc('LarynxOffset', 'Larynx height (Hz offset) — shifts all formants up/down coherently. &gt;0 raised larynx (brighter, more projected), &lt;0 lowered larynx (darker, operatic/rounded)')">
+                    <label>LarynxOffset</label>
+                    <input type="range" min="-200" max="200" value="0" id="v-LarynxOffset" oninput="ui.onParamInput('LarynxOffset', this.value)">
+                    <span id="v-LarynxOffset-val">0</span>
+                </div>
+                <div class="slider-group" onmouseover="ui.updateDesc('PharyngealAmt', 'Pharyngeal constriction — raises F1, lowers F2 twice as much, slight F3 lowering. The acoustic basis of the pirate &quot;arrr&quot; quality and Arabic pharyngealization.')">
+                    <label>PharyngealAmt</label>
+                    <input type="range" min="0" max="100" value="0" id="v-PharyngealAmt" oninput="ui.onParamInput('PharyngealAmt', this.value)">
+                    <span id="v-PharyngealAmt-val">0</span>
+                </div>
+                <div class="slider-group" onmouseover="ui.updateDesc('LipRounding', 'Lip rounding/spreading — positive rounds lips (F1↓, F2↓↓, F3↓), negative spreads (F1↑, F2↑↑, F3↑). Rounds front vowels toward /u/, spreads back vowels toward /i/.')">
+                    <label>LipRounding</label>
+                    <input type="range" min="-100" max="100" value="0" id="v-LipRounding" oninput="ui.onParamInput('LipRounding', this.value)">
+                    <span id="v-LipRounding-val">0</span>
+                </div>
+                <div class="slider-group" onmouseover="ui.updateDesc('Jitter', 'Random cycle-to-cycle pitch perturbation — adds roughness and creak')">
+                    <label>Jitter</label>
+                    <input type="range" min="0" max="100" value="0" id="v-Jitter" oninput="ui.onParamInput('Jitter', this.value)">
+                    <span id="v-Jitter-val">0</span>
+                </div>
+                <div class="slider-group" onmouseover="ui.updateDesc('Shimmer', 'Random cycle-to-cycle amplitude perturbation — adds breathiness and gravel')">
+                    <label>Shimmer</label>
+                    <input type="range" min="0" max="100" value="0" id="v-Shimmer" oninput="ui.onParamInput('Shimmer', this.value)">
+                    <span id="v-Shimmer-val">0</span>
+                </div>
+                <div class="slider-group" onmouseover="ui.updateDesc('Diplophonia', 'Alternating strong/weak pulse pattern — adds subharmonic at F0/2, pirate growl effect')">
+                    <label>Diplophonia</label>
+                    <input type="range" min="0" max="100" value="0" id="v-Diplophonia" oninput="ui.onParamInput('Diplophonia', this.value)">
+                    <span id="v-Diplophonia-val">0</span>
+                </div>
+                <div class="slider-group" onmouseover="ui.updateDesc('FryAmount', 'Vocal fry — randomly extends glottal cycles to 1/2 or 1/4 speed, creating irregular creak. Combine with Jitter for texture.')">
+                    <label>FryAmount</label>
+                    <input type="range" min="0" max="100" value="0" id="v-FryAmount" oninput="ui.onParamInput('FryAmount', this.value)">
+                    <span id="v-FryAmount-val">0</span>
+                </div>
+                <div class="slider-group" onmouseover="ui.updateDesc('SubglottalAmt', 'Subglottal resonance coupling — ~350 Hz chest cavity texture mixed into the voiced source. Adds warmth and weight to chest voice.')">
+                    <label>SubglottalAmt</label>
+                    <input type="range" min="0" max="100" value="0" id="v-SubglottalAmt" oninput="ui.onParamInput('SubglottalAmt', this.value)">
+                    <span id="v-SubglottalAmt-val">0</span>
+                </div>
+                <div class="slider-group" onmouseover="ui.updateDesc('BreathAmt', 'Cycle-synchronous breathiness — noise injected only during the glottal open phase (scaled by waveform amplitude). Independent of aspiration; stays in cascade path so it has vowel formant coloring.')">
+                    <label>BreathAmt</label>
+                    <input type="range" min="0" max="100" value="0" id="v-BreathAmt" oninput="ui.onParamInput('BreathAmt', this.value)">
+                    <span id="v-BreathAmt-val">0</span>
+                </div>
+                <div class="slider-group" onmouseover="ui.updateDesc('OpenQuotient', 'Glottal open quotient — 0=pressed/bright (short open phase, harmonics-rich source), 50=neutral, 100=breathy/dark (long open phase, sine-like source)')">
+                    <label>OpenQuotient</label>
+                    <input type="range" min="0" max="100" value="50" id="v-OpenQuotient" oninput="ui.onParamInput('OpenQuotient', this.value)">
+                    <span id="v-OpenQuotient-val">50</span>
+                </div>
+                <div class="slider-group" onmouseover="ui.updateDesc('OQStressLink', 'Dynamic OQ: stress→pressed — each stressed syllable pushes the open quotient down (brighter, more harmonic energy). 0=static OQ only, 100=full coupling.')">
+                    <label>OQStressLink</label>
+                    <input type="range" min="0" max="100" value="0" id="v-OQStressLink" oninput="ui.onParamInput('OQStressLink', this.value)">
+                    <span id="v-OQStressLink-val">0</span>
+                </div>
+                <div class="slider-group" onmouseover="ui.updateDesc('OQF0Link', 'Dynamic OQ: pitch→breathy — F0 above baseline pushes open quotient up (darker, more breathy). Models falsetto register onset. 0=static only, 100=full coupling.')">
+                    <label>OQF0Link</label>
+                    <input type="range" min="0" max="100" value="0" id="v-OQF0Link" oninput="ui.onParamInput('OQF0Link', this.value)">
+                    <span id="v-OQF0Link-val">0</span>
+                </div>
+                <div class="slider-group" onmouseover="ui.updateDesc('OnsetHardness', 'Voiced onset ramp — 0=soft breathy onset (slow AV ramp, choir-like), 50=natural, 100=hard glottal attack (AV snaps to target instantly, aggressive vowel onset)')">
+                    <label>OnsetHardness</label>
+                    <input type="range" min="0" max="100" value="50" id="v-OnsetHardness" oninput="ui.onParamInput('OnsetHardness', this.value)">
+                    <span id="v-OnsetHardness-val">50</span>
+                </div>
+                <div class="slider-group" onmouseover="ui.updateDesc('VoicingGain', 'Strength of voiced (periodic) excitation')">
+                    <label>VoicingGain</label>
+                    <input type="range" min="0" max="500" value="100" id="v-VGain" oninput="ui.onParamInput('VGain', this.value)">
+                    <span id="v-VGain-val">100</span>
+                </div>
+                <div class="slider-group" onmouseover="ui.updateDesc('AspirationGain', 'Strength of aspiration/breath noise')">
+                    <label>AspirationGain</label>
+                    <input type="range" min="0" max="1000" value="0" id="v-AGain" oninput="ui.onParamInput('AGain', this.value)">
+                    <span id="v-AGain-val">0</span>
+                </div>
+                <div class="slider-group" onmouseover="ui.updateDesc('AspirationCycle', 'Aspiration noise cycle length')">
+                    <label>AspirationCycle</label>
+                    <input type="range" min="0" max="255" value="192" id="v-ACycle" oninput="ui.onParamInput('ACycle', this.value)">
+                    <span id="v-ACycle-val">192</span>
+                </div>
+                <div class="slider-group" onmouseover="ui.updateDesc('TremoloDepth', 'Depth of amplitude tremolo — 0 = off, 100 = full; adds vocal growl/gravel')">
+                    <label>TremoloDepth</label>
+                    <input type="range" min="0" max="100" value="0" id="v-TremoloDepth" oninput="ui.onParamInput('TremoloDepth', this.value)">
+                    <span id="v-TremoloDepth-val">0</span>
+                </div>
+                <div class="slider-group" onmouseover="ui.updateDesc('TremoloRate', 'Rate of tremolo oscillation (×0.1 Hz) — e.g. 40 = 4 Hz; works with TremoloDepth > 0')">
+                    <label>TremoloRate</label>
+                    <input type="range" min="0" max="200" value="0" id="v-TremoloRate" oninput="ui.onParamInput('TremoloRate', this.value)">
+                    <span id="v-TremoloRate-val">0</span>
+                </div>
+                <div class="slider-group" onmouseover="ui.updateDesc('NGain', 'Nasal resonator gain')">
+                    <label>NGain</label>
+                    <input type="range" min="0" max="400" value="100" id="v-NGain" oninput="ui.onParamInput('NGain', this.value)">
+                    <span id="v-NGain-val">100</span>
+                </div>
+            </fieldset>
+
+            <fieldset>
+                <legend>formants (F4–F6)</legend>
+                <div class="slider-group" onmouseover="ui.updateDesc('F4Freq', '4th formant frequency (Hz) — adds brightness')">
+                    <label>F4Freq</label>
+                    <input type="range" min="2000" max="5000" value="3650" id="v-F4Freq" oninput="ui.onParamInput('F4Freq', this.value)">
+                    <span id="v-F4Freq-val">3650</span>
+                </div>
+                <div class="slider-group" onmouseover="ui.updateDesc('F4BW', '4th formant bandwidth')">
+                    <label>F4BW</label>
+                    <input type="range" min="50" max="2048" value="200" id="v-F4BW" oninput="ui.onParamInput('F4BW', this.value)">
+                    <span id="v-F4BW-val">200</span>
+                </div>
+                <div class="slider-group" onmouseover="ui.updateDesc('F5Freq', '5th cascade formant frequency (Hz) — upper vocal tract resonance')">
+                    <label>F5Freq</label>
+                    <input type="range" min="2000" max="8000" value="4500" id="v-F5Freq" oninput="ui.onParamInput('F5Freq', this.value)">
+                    <span id="v-F5Freq-val">4500</span>
+                </div>
+                <div class="slider-group" onmouseover="ui.updateDesc('F5BW', '5th cascade formant bandwidth')">
+                    <label>F5BW</label>
+                    <input type="range" min="50" max="2048" value="250" id="v-F5BW" oninput="ui.onParamInput('F5BW', this.value)">
+                    <span id="v-F5BW-val">250</span>
+                </div>
+                <div class="slider-group" onmouseover="ui.updateDesc('F4pFreq', '4th parallel formant frequency')">
+                    <label>F4pFreq</label>
+                    <input type="range" min="2000" max="5000" value="3650" id="v-F4pFreq" oninput="ui.onParamInput('F4pFreq', this.value)">
+                    <span id="v-F4pFreq-val">3650</span>
+                </div>
+                <div class="slider-group" onmouseover="ui.updateDesc('F4pBW', '4th parallel formant bandwidth')">
+                    <label>F4pBW</label>
+                    <input type="range" min="50" max="2048" value="150" id="v-F4pBW" oninput="ui.onParamInput('F4pBW', this.value)">
+                    <span id="v-F4pBW-val">150</span>
+                </div>
+                <div class="slider-group" onmouseover="ui.updateDesc('F5pFreq', '5th parallel formant frequency')">
+                    <label>F5pFreq</label>
+                    <input type="range" min="2000" max="6000" value="4200" id="v-F5pFreq" oninput="ui.onParamInput('F5pFreq', this.value)">
+                    <span id="v-F5pFreq-val">4200</span>
+                </div>
+                <div class="slider-group" onmouseover="ui.updateDesc('F5pBW', '5th parallel formant bandwidth')">
+                    <label>F5pBW</label>
+                    <input type="range" min="50" max="2048" value="100" id="v-F5pBW" oninput="ui.onParamInput('F5pBW', this.value)">
+                    <span id="v-F5pBW-val">100</span>
+                </div>
+                <div class="slider-group" onmouseover="ui.updateDesc('F6pFreq', '6th parallel formant frequency')">
+                    <label>F6pFreq</label>
+                    <input type="range" min="2000" max="8000" value="4500" id="v-F6pFreq" oninput="ui.onParamInput('F6pFreq', this.value)">
+                    <span id="v-F6pFreq-val">4500</span>
+                </div>
+                <div class="slider-group" onmouseover="ui.updateDesc('F6pBW', '6th parallel formant bandwidth')">
+                    <label>F6pBW</label>
+                    <input type="range" min="50" max="2048" value="150" id="v-F6pBW" oninput="ui.onParamInput('F6pBW', this.value)">
+                    <span id="v-F6pBW-val">150</span>
+                </div>
+            </fieldset>
+
+            <fieldset>
+                <legend>bandwidth</legend>
+                <div class="slider-group" onmouseover="ui.updateDesc('BwGain1', 'F1 bandwidth gain')">
+                    <label>BwGain1</label>
+                    <input type="range" min="0" max="300" value="135" id="v-BwGain1" oninput="ui.onParamInput('BwGain1', this.value)">
+                    <span id="v-BwGain1-val">135</span>
+                </div>
+                <div class="slider-group" onmouseover="ui.updateDesc('BwGain2', 'F2 bandwidth gain')">
+                    <label>BwGain2</label>
+                    <input type="range" min="0" max="300" value="110" id="v-BwGain2" oninput="ui.onParamInput('BwGain2', this.value)">
+                    <span id="v-BwGain2-val">110</span>
+                </div>
+                <div class="slider-group" onmouseover="ui.updateDesc('BwGain3', 'F3 bandwidth gain')">
+                    <label>BwGain3</label>
+                    <input type="range" min="0" max="300" value="100" id="v-BwGain3" oninput="ui.onParamInput('BwGain3', this.value)">
+                    <span id="v-BwGain3-val">100</span>
+                </div>
+            </fieldset>
+
+            <fieldset>
+                <legend>nasal</legend>
+                <div class="slider-group" onmouseover="ui.updateDesc('NasalBase', 'Nasal pole base frequency (Hz)')">
+                    <label>NasalBase</label>
+                    <input type="range" min="200" max="600" value="330" id="v-NasalBase" oninput="ui.onParamInput('NasalBase', this.value)">
+                    <span id="v-NasalBase-val">330</span>
+                </div>
+                <div class="slider-group" onmouseover="ui.updateDesc('NasalTarg', 'Nasal pole target frequency (Hz)')">
+                    <label>NasalTarg</label>
+                    <input type="range" min="200" max="600" value="400" id="v-NasalTarg" oninput="ui.onParamInput('NasalTarg', this.value)">
+                    <span id="v-NasalTarg-val">400</span>
+                </div>
+                <div class="slider-group" onmouseover="ui.updateDesc('NasalBW', 'Nasal pole bandwidth')">
+                    <label>NasalBW</label>
+                    <input type="range" min="30" max="2048" value="60" id="v-NasalBW" oninput="ui.onParamInput('NasalBW', this.value)">
+                    <span id="v-NasalBW-val">60</span>
+                </div>
+            </fieldset>
+
+            <fieldset>
+                <legend>intonation</legend>
+                <div class="slider-group" onmouseover="ui.updateDesc('PitchRange', 'Pitch excursion range (% of baseline)')">
+                    <label>PitchRange</label>
+                    <input type="range" min="0" max="300" value="120" id="v-PitchRange" oninput="ui.onParamInput('PitchRange', this.value)">
+                    <span id="v-PitchRange-val">120</span>
+                </div>
+                <div class="slider-group" onmouseover="ui.updateDesc('StressGain', 'Pitch gain on stressed syllables')">
+                    <label>StressGain</label>
+                    <input type="range" min="0" max="200" value="60" id="v-StressGain" oninput="ui.onParamInput('StressGain', this.value)">
+                    <span id="v-StressGain-val">60</span>
+                </div>
+                <div class="slider-group" onmouseover="ui.updateDesc('Intonation', 'Overall intonation depth (%)')">
+                    <label>Intonation</label>
+                    <input type="range" min="0" max="200" value="100" id="v-Intonation" oninput="ui.onParamInput('Intonation', this.value)">
+                    <span id="v-Intonation-val">100</span>
+                </div>
+                <div class="slider-group" onmouseover="ui.updateDesc('RiseAmt', 'Clause-final pitch rise amount')">
+                    <label>RiseAmt</label>
+                    <input type="range" min="-100" max="100" value="29" id="v-RiseAmt" oninput="ui.onParamInput('RiseAmt', this.value)">
+                    <span id="v-RiseAmt-val">29</span>
+                </div>
+                <div class="slider-group" onmouseover="ui.updateDesc('FallAmt', 'Clause-final pitch fall amount')">
+                    <label>FallAmt</label>
+                    <input type="range" min="-100" max="100" value="-29" id="v-FallAmt" oninput="ui.onParamInput('FallAmt', this.value)">
+                    <span id="v-FallAmt-val">-29</span>
+                </div>
+                <div class="slider-group" onmouseover="ui.updateDesc('BaselineFall', 'Declination — pitch fall over utterance')">
+                    <label>BaselineFall</label>
+                    <input type="range" min="0" max="150" value="51" id="v-BaselineFall" oninput="ui.onParamInput('BaselineFall', this.value)">
+                    <span id="v-BaselineFall-val">51</span>
+                </div>
+                <div class="slider-group" onmouseover="ui.updateDesc('UptalkAmt', 'Sentence-final rising tendency — 0=natural fall, 100=uptalk/rising statements')">
+                    <label>UptalkAmt</label>
+                    <input type="range" min="0" max="100" value="0" id="v-UptalkAmt" oninput="ui.onParamInput('UptalkAmt', this.value)">
+                    <span id="v-UptalkAmt-val">0</span>
+                </div>
+                <div class="slider-group" onmouseover="ui.updateDesc('StressEarly', 'Stress peak alignment — negative=early/assertive, 0=natural, positive=late/hesitant')">
+                    <label>StressEarly</label>
+                    <input type="range" min="-50" max="50" value="0" id="v-StressEarly" oninput="ui.onParamInput('StressEarly', this.value)">
+                    <span id="v-StressEarly-val">0</span>
+                </div>
+                <div class="slider-group" onmouseover="ui.updateDesc('BreakStrength', 'Phrase boundary reset — 0=smooth carry-over, 50=natural, 100=hard fresh start')">
+                    <label>BreakStrength</label>
+                    <input type="range" min="0" max="100" value="50" id="v-BreakStrength" oninput="ui.onParamInput('BreakStrength', this.value)">
+                    <span id="v-BreakStrength-val">50</span>
+                </div>
+                <div class="slider-group" onmouseover="ui.updateDesc('EmphasisBoost', 'Extra pitch height for emphatic stress — amplifies contrast between emphatic and primary stress')">
+                    <label>EmphasisBoost</label>
+                    <input type="range" min="0" max="100" value="0" id="v-EmphasisBoost" oninput="ui.onParamInput('EmphasisBoost', this.value)">
+                    <span id="v-EmphasisBoost-val">0</span>
+                </div>
+                <div class="slider-group" onmouseover="ui.updateDesc('VocalConfidence', 'Pronoun emphasis — subject pronouns (I/you/he/she/it/we/they) get a rise-fall pitch accent and vowel lengthening; 0=none, 100=full')">
+                    <label>VocalConfidence</label>
+                    <input type="range" min="0" max="100" value="0" id="v-VocalConfidence" oninput="ui.onParamInput('VocalConfidence', this.value)">
+                    <span id="v-VocalConfidence-val">0</span>
+                </div>
+            </fieldset>
+        </div>
+    </div>
+
+    <img src="/sharptalk/firefox-logo.png" class="ff-only" alt="Firefox" />
+
+    <script src="AudioPlayer.js"></script>
+    <script src="ui.js"></script>
+    <script type="module" src="main.js"></script>
+    <script type="module" src="LipsyncRenderer.js"></script>
+</body>
+</html>

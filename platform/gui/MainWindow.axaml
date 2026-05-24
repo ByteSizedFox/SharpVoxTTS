@@ -1,0 +1,156 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="SharpTalkGui.MainWindow"
+        Title="SharpTalk TTS"
+        Width="600" Height="400"
+        MinWidth="400" MinHeight="300"
+        Background="#1E1E1E">
+
+    <Grid RowDefinitions="Auto,*,Auto,Auto">
+
+        <!-- Row 0: Tabs -->
+        <TabControl x:Name="MainTabs" Grid.Row="0" SelectionChanged="OnTabChanged">
+            <TabItem Header="Text To Speech" Name="TtsTab" />
+            <TabItem Header="KLATTSCH Mode" Name="KlattschTab" />
+            <TabItem Header="UST Converter" Name="UstTab" />
+        </TabControl>
+
+        <!-- Row 1: Content -->
+        <Grid Grid.Row="1">
+            <!-- TTS / Klattsch Input -->
+            <TextBox x:Name="InputBox"
+                     AcceptsReturn="True"
+                     TextWrapping="Wrap"
+                     Watermark="Enter text to speak..."
+                     Margin="12"
+                     Background="#2D2D2D"
+                     Foreground="White"
+                     BorderBrush="#444444"
+                     CornerRadius="6"
+                     FontSize="14"
+                     Padding="8"
+                     VerticalAlignment="Stretch" />
+
+            <!-- UST Panel (Visible only when UstTab is selected) -->
+            <StackPanel x:Name="UstPanel" Margin="12" Spacing="10" IsVisible="False">
+                <Border Background="#2D2D2D" Padding="12" CornerRadius="6">
+                    <StackPanel Spacing="10">
+                        <TextBlock Text="UST CONVERSION" Foreground="#666666" FontSize="10" FontWeight="Bold" LetterSpacing="1"/>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button Content="Select .ust file" Click="OnSelectUstFileClicked" />
+                            <TextBlock x:Name="UstFileNameLabel" Text="no file selected" Foreground="#AAAAAA" VerticalAlignment="Center" FontSize="12"/>
+                        </StackPanel>
+                        <Grid ColumnDefinitions="Auto,*,Auto,*" RowDefinitions="Auto,Auto" Margin="0,5,0,0">
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Language:" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="12"/>
+                            <ComboBox Grid.Row="0" Grid.Column="1" x:Name="UstLanguageCombo" SelectedIndex="0" HorizontalAlignment="Stretch">
+                                <ComboBoxItem Content="Auto-detect"/>
+                                <ComboBoxItem Content="Japanese"/>
+                                <ComboBoxItem Content="English"/>
+                                <ComboBoxItem Content="X-SAMPA"/>
+                                <ComboBoxItem Content="IPA"/>
+                                <ComboBoxItem Content="ARPAbet"/>
+                                <ComboBoxItem Content="ARPAbet (JP)"/>
+                            </ComboBox>
+
+                            <TextBlock Grid.Row="0" Grid.Column="2" Text="Offset:" VerticalAlignment="Center" Margin="12,0,8,0" FontSize="12"/>
+                            <NumericUpDown Grid.Row="0" Grid.Column="3" x:Name="UstOffsetNumeric" Value="0" Minimum="-10000" Maximum="10000" />
+
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Bank:" VerticalAlignment="Center" Margin="0,10,8,0" FontSize="12"/>
+                            <ComboBox Grid.Row="1" Grid.Column="1" x:Name="UstBankCombo" SelectedIndex="0" HorizontalAlignment="Stretch" Margin="0,10,0,0">
+                                <ComboBoxItem Content="None (Default)"/>
+                                <ComboBoxItem Content="Japanese (Mokhtari)"/>
+                                <ComboBoxItem Content="English (Klatt1980)"/>
+                            </ComboBox>
+
+                            <CheckBox Grid.Row="1" Grid.Column="2" Grid.ColumnSpan="2" x:Name="UstCompatCheck" Content="Compatibility Mode" Margin="12,10,0,0" FontSize="12"/>
+                        </Grid>
+                        <Button Content="CONVERT TO KLATTSCH" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                Background="#0078D4" Foreground="White" FontWeight="Bold" Margin="0,5,0,0" Click="OnConvertUstClicked"/>
+                    </StackPanel>
+                </Border>
+                <TextBlock Text="DIAGNOSTICS" Foreground="#666666" FontSize="10" FontWeight="Bold" LetterSpacing="1" Margin="0,10,0,0"/>
+                <TextBox x:Name="UstDiagnosticsBox" IsReadOnly="True" AcceptsReturn="True" Height="100" Background="#1A1A1A" BorderThickness="0" FontSize="12" Foreground="#888888"/>
+            </StackPanel>
+        </Grid>
+
+        <!-- Row 2: Controls bar -->
+        <StackPanel Grid.Row="2"
+                    Orientation="Horizontal"
+                    Margin="8,4"
+                    Spacing="8">
+
+            <Button x:Name="SpeakButton"
+                    Content="Speak"
+                    Background="#0078D4"
+                    Foreground="White"
+                    Padding="8,6"
+                    CornerRadius="4"
+                    Width="80"
+                    Click="OnSpeakClicked" />
+
+            <Button x:Name="StopButton"
+                    Content="Stop"
+                    Padding="8,6"
+                    CornerRadius="4"
+                    Click="OnStopClicked" />
+
+            <TextBlock x:Name="StatusLabel"
+                       Text="Ready"
+                       Foreground="#AAAAAA"
+                       VerticalAlignment="Center"
+                       FontSize="13" />
+
+            <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                <TextBlock Text="Rate:" Foreground="#AAAAAA" VerticalAlignment="Center" FontSize="12"/>
+                <ComboBox x:Name="SampleRateCombo" SelectedIndex="4" Width="80" SelectionChanged="OnSampleRateChanged">
+                    <ComboBoxItem Content="8000"/>
+                    <ComboBoxItem Content="11025"/>
+                    <ComboBoxItem Content="22050"/>
+                    <ComboBoxItem Content="44100"/>
+                    <ComboBoxItem Content="48000"/>
+                </ComboBox>
+            </StackPanel>
+
+            <Panel HorizontalAlignment="Stretch" />
+
+            <Button x:Name="DownloadWavButton"
+                    Content="Save WAV…"
+                    Padding="8,6"
+                    CornerRadius="4"
+                    Click="OnSaveWavClicked" />
+
+            <Button x:Name="VoiceSettingsButton"
+                    Content="Voice Settings"
+                    Padding="8,6"
+                    CornerRadius="4"
+                    Click="OnVoiceSettingsClicked" />
+
+        </StackPanel>
+
+        <!-- Row 3: Phoneme display card -->
+        <Border Grid.Row="3"
+                Background="#2A2A2A"
+                CornerRadius="8"
+                Margin="8,0,8,8"
+                Padding="0">
+
+            <StackPanel Margin="12,8">
+                <TextBlock Text="PHONEME"
+                           Foreground="#666666"
+                           FontSize="10"
+                           FontWeight="Bold"
+                           LetterSpacing="2"
+                           Margin="0,0,0,2" />
+                <!-- Large single phoneme display -->
+                <TextBlock x:Name="PhonemeLabel"
+                           Text="—"
+                           FontSize="42"
+                           FontWeight="Bold"
+                           Foreground="#888888" />
+            </StackPanel>
+
+        </Border>
+
+    </Grid>
+
+</Window>

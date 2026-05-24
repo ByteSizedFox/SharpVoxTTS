@@ -1,0 +1,15 @@
+bin/
+obj/
+platform/webui/wwwroot/voices/
+*.user
+cmudict.dict
+freq20k.txt
+*.bin
+*.wav
+tools/**/bin/
+tools/**/obj/
+__pycache__
+dist
+publish.sh
+.idea/*
+ml-clone/

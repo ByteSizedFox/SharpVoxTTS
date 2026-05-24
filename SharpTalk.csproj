@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <AssemblyName>SharpTalk</AssemblyName>
+    <RootNamespace>SharpTalk</RootNamespace>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Remove="platform/**" />
+    <Compile Remove="test/**" />
+    <Compile Remove="tools/**" />
+  </ItemGroup>
+</Project>

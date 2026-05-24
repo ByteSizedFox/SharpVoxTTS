@@ -1,0 +1,75 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="SharpTalkGui.VoiceWindow"
+        Title="Voice Settings"
+        Width="440" Height="600"
+        MinWidth="360" MinHeight="400"
+        Background="#1E1E1E"
+        CanResize="True">
+
+    <DockPanel>
+
+        <!-- Top: Preset buttons -->
+        <StackPanel DockPanel.Dock="Top"
+                    Orientation="Horizontal"
+                    Margin="8,8,8,4"
+                    Spacing="6">
+            <TextBlock Text="Presets:"
+                       Foreground="#AAAAAA"
+                       VerticalAlignment="Center"
+                       Margin="0,0,4,0" />
+            <Button x:Name="BaselineButton"
+                    Content="Baseline"
+                    Padding="8,5"
+                    CornerRadius="4"
+                    Click="OnBaselineClicked" />
+            <Button x:Name="WhisperButton"
+                    Content="Whisper"
+                    Padding="8,5"
+                    CornerRadius="4"
+                    Click="OnWhisperClicked" />
+            <Border Width="1" Background="#444444" Margin="4,2" VerticalAlignment="Stretch" />
+            <Button Content="Export…"
+                    Padding="8,5"
+                    CornerRadius="4"
+                    Click="OnExportClicked" />
+            <Button Content="Import…"
+                    Padding="8,5"
+                    CornerRadius="4"
+                    Click="OnImportClicked" />
+        </StackPanel>
+
+        <!-- Bottom: Description panel -->
+        <Border DockPanel.Dock="Bottom"
+                Background="#1A1A1A"
+                CornerRadius="6"
+                Margin="8"
+                Padding="10"
+                MinHeight="90">
+            <StackPanel>
+                <TextBlock x:Name="DescTitle"
+                           Text="Hover a parameter for details"
+                           FontWeight="Bold"
+                           Foreground="White"
+                           FontSize="13"
+                           Margin="0,0,0,4" />
+                <TextBlock x:Name="DescBody"
+                           Text=""
+                           Foreground="#AAAAAA"
+                           FontSize="12"
+                           TextWrapping="Wrap" />
+            </StackPanel>
+        </Border>
+
+        <!-- Fill: Scrollable sliders -->
+        <ScrollViewer DockPanel.Dock="Top"
+                      VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled">
+            <StackPanel x:Name="SliderPanel"
+                        Margin="8,0,8,4"
+                        Spacing="0" />
+        </ScrollViewer>
+
+    </DockPanel>
+
+</Window>

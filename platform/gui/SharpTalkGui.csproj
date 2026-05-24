@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+    <NoWarn>AVLN3001</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../dotnet/SharpTalk.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="../webui/UstConverter.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AvaloniaResource Include="img_png\*.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="11.3.0" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.3.0" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.0" />
+    <PackageReference Include="OpenTK.Audio.OpenAL" Version="4.9.3" />
+    <PackageReference Include="System.Text.Encoding.CodePages" Version="9.0.2" />
+  </ItemGroup>
+
+</Project>
