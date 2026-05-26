@@ -20,8 +20,11 @@ public:
 
     bool IsSpeaking() const { return _isSpeaking; }
 
-    std::vector<int16_t> Speak(const std::string& text);
-    std::pair<std::vector<int16_t>, std::vector<PhonemeEvent>> SpeakWithEvents(const std::string& text);
+    void Speak(const std::string& text,
+               std::function<void(const int16_t*, int32_t)> onBuffer);
+    void SpeakWithEvents(const std::string& text,
+                         std::function<void(const int16_t*, int32_t)> onBuffer,
+                         std::function<void(const std::vector<PhonemeEvent>&)> onEventsReady);
 
     // Polls pending phoneme events up to absoluteSeconds and fires OnPhoneme for each
     void PollAbsolute(float absoluteSeconds);

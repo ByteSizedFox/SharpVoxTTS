@@ -3,21 +3,28 @@
 
 using SharpTalk::SharpTalkSpeaker;
 
-static void write_wav(const char* path, const short* buf, int n, int sr) {
-    FILE* f = fopen(path, "wb");
-    int data = n * 2;
-    auto w32 = [f](int v)   { fwrite(&v, 4, 1, f); };
-    auto w16 = [f](short v) { fwrite(&v, 2, 1, f); };
-    fwrite("RIFF", 4, 1, f); w32(36 + data);
-    fwrite("WAVEfmt ", 8, 1, f); w32(16); w16(1); w16(1);
-    w32(sr); w32(sr * 2); w16(2); w16(16);
-    fwrite("data", 4, 1, f); w32(data);
-    fwrite(buf, 2, n, f);
-    fclose(f);
-}
-
 int main() {
     SharpTalkSpeaker speaker;
-    auto samples = speaker.Speak("hello world");
-    write_wav("hello.wav", samples.data(), (int)samples.size(), speaker.SampleRate);
+
+    FILE* f = fopen("hello.wav", "wb");
+    auto w32 = [f](int v)   { fwrite(&v, 4, 1, f); };
+    auto w16 = [f](short v) { fwrite(&v, 2, 1, f); };
+    int sr = speaker.SampleRate;
+
+    // Write header with placeholder sizes, patched after synthesis.
+    fwrite("RIFF", 4, 1, f); w32(0);
+    fwrite("WAVEfmt ", 8, 1, f); w32(16); w16(1); w16(1);
+    w32(sr); w32(sr * 2); w16(2); w16(16);
+    fwrite("data", 4, 1, f); w32(0);
+
+    int total = 0;
+    speaker.Speak("hello world", [&](const short* buf, int len) {
+        fwrite(buf, 2, len, f);
+        total += len;
+    });
+
+    int data = total * 2;
+    fseek(f, 4,  SEEK_SET); w32(36 + data);
+    fseek(f, 40, SEEK_SET); w32(data);
+    fclose(f);
 }

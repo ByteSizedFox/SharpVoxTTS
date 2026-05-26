@@ -55,15 +55,7 @@ namespace SharpTalk {
         return result;
     }
 
-    std::vector<int16_t> TtsEngine::Speak(const std::string& text) {
-        std::vector<int16_t> samples;
-        Speak(text, [&](const int16_t* buf, int32_t len) {
-            samples.insert(samples.end(), buf, buf + len);
-        });
-        return samples;
-    }
-
-    // Returns one record per synthesis frame (5 ms each) with pitch and tilt diagnostics.
+        // Returns one record per synthesis frame (5 ms each) with pitch and tilt diagnostics.
     std::vector<TtsEngine::PitchFrameRecord> TtsEngine::DumpPitchFrames(const std::string& text) {
         std::vector<PitchFrameRecord> records;
         for (const auto& seg : EmbeddedCmd::ParseSegments(text)) {
@@ -130,87 +122,6 @@ namespace SharpTalk {
                 continue;
             }
             if (seg.IsKlattsch()) {
-                ProcessKlattsch(seg.klattschText, onBuffer);
-                continue;
-            }
-            if (seg.IsSinging()) {
-                int32_t dummy = 0;
-                ProcessSentence(seg.singing, 0, onBuffer, nullptr, dummy);
-                continue;
-            }
-            auto sentences = _fe.TextToSentenceTokens(seg.plainText);
-            for (auto& [tokens, endPunct] : sentences) {
-                int32_t dummy = 0;
-                ProcessSentence(tokens, endPunct, onBuffer, nullptr, dummy);
-            }
-        }
-    }
-
-    /// Like Speak, but also returns a timeline of phoneme events with start times
-    /// in seconds relative to the start of the returned audio.
-    std::pair<std::vector<int16_t>, std::vector<PhonemeEvent>>
-    TtsEngine::SpeakWithEvents(const std::string& text) {
-        std::vector<int16_t> samples;
-        std::vector<PhonemeEvent> events;
-        int32_t sampleOffset = 0;
-        EmbeddedCmd::KlattschMode = false;
-        for (const auto& seg : EmbeddedCmd::ParseSegments(text)) {
-            if (seg.IsCommand()) {
-                ApplyCommand(*seg.cmd);
-                continue;
-            }
-            if (seg.IsKlattsch()) {
-                auto klattTokens = KlattschParser::CompileToTokens(KlattschParser::Tokenize(seg.klattschText));
-                if (!klattTokens.empty()) {
-                    auto dump = _be.Process(klattTokens, 0);
-                    int32_t frameOff = 0;
-                    for (int32_t i = 0; i < dump.PhonBuf2InIndex; i++) {
-                        int16_t phon = dump.PhonBuf2[i];
-                        bool emitSil = phon == AudioProcessor::_SIL_ && (i == 0 || dump.PhonBuf2[i - 1] != AudioProcessor::_SIL_);
-                        if (phon != AudioProcessor::_SIL_ || emitSil) {
-                            events.emplace_back(phon,
-                                (float)(sampleOffset + frameOff * _synth.SampFrameLen) / SampleRate);
-                        }
-                        frameOff += dump.DurBuf[i];
-                    }
-                    auto audio = ProcessSentenceToBuffer(klattTokens, 0);
-                    samples.insert(samples.end(), audio.begin(), audio.end());
-                    sampleOffset += (int32_t)audio.size();
-                }
-                continue;
-            }
-            if (seg.IsSinging()) {
-                ProcessSentence(seg.singing, 0,
-                    [&](const int16_t* buf, int32_t len) {
-                        samples.insert(samples.end(), buf, buf + len);
-                    },
-                    &events, sampleOffset);
-                continue;
-            }
-            for (auto& [tokens, endPunct] : _fe.TextToSentenceTokens(seg.plainText)) {
-                ProcessSentence(tokens, endPunct,
-                    [&](const int16_t* buf, int32_t len) {
-                        samples.insert(samples.end(), buf, buf + len);
-                    },
-                    &events, sampleOffset);
-            }
-        }
-        return { samples, events };
-    }
-
-    // Internal helpers
-
-    // Synchronous streaming: synthesizes in chunks, invoking onBuffer for each.
-    // C# async Task SpeakAsync -> synchronous in C++ (no async/await).
-    void TtsEngine::SpeakAsync(const std::string& text,
-                               std::function<void(const int16_t*, int32_t)> onBuffer) {
-        EmbeddedCmd::KlattschMode = false;
-        for (const auto& seg : EmbeddedCmd::ParseSegments(text)) {
-            if (seg.IsCommand()) {
-                ApplyCommand(*seg.cmd);
-                continue;
-            }
-            if (seg.IsKlattsch()) {
                 auto tokens = KlattschParser::CompileToTokens(KlattschParser::Tokenize(seg.klattschText));
                 if (!tokens.empty()) {
                     ProcessSentenceStreaming(tokens, 0, onBuffer);
@@ -224,15 +135,6 @@ namespace SharpTalk {
             for (auto& [tokens, endPunct] : _fe.TextToSentenceTokens(seg.plainText)) {
                 ProcessSentenceStreaming(tokens, endPunct, onBuffer);
             }
-        }
-    }
-
-    void TtsEngine::ProcessKlattsch(const std::string& text,
-                                    std::function<void(const int16_t*, int32_t)> onBuffer) {
-        auto tokens = KlattschParser::CompileToTokens(KlattschParser::Tokenize(text));
-        if (!tokens.empty()) {
-            int32_t dummy = 0;
-            ProcessSentence(tokens, 0, onBuffer, nullptr, dummy);
         }
     }
 
@@ -265,14 +167,10 @@ namespace SharpTalk {
         }
     }
 
-    // Phase 1, fast (_be.Process per sentence) -> collect events + dumps.
-    // Calls onEventsReady before any audio is rendered so the UI can set up
-    // tracking while the first frame hasn't been synthesized yet.
-    // Phase 2, stream formant frames from pre-computed dumps.
-    void TtsEngine::SpeakAsyncWithEvents(
+    void TtsEngine::SpeakWithEvents(
         const std::string& text,
         std::function<void(const int16_t*, int32_t)> onBuffer,
-        std::function<void(std::vector<PhonemeEvent>&)> onEventsReady) {
+        std::function<void(const std::vector<PhonemeEvent>&)> onEventsReady) {
 
         std::vector<PhonemeEvent> events;
         std::vector<SynthInputDump> workItems;
@@ -346,45 +244,6 @@ namespace SharpTalk {
         for (const auto& dump : workItems) {
             ProcessSentenceStreamingFromDump(dump, onBuffer);
         }
-    }
-
-    std::vector<int16_t> TtsEngine::RenderDumpToBuffer(const SynthInputDump& dump) {
-        std::vector<int16_t> audio;
-        _renderer.RenderStreaming(dump, [&](const Frame& frame) {
-            std::vector<int16_t> frameAudio(_synth.SampFrameLen, 0);
-            _synth.SynthesizeFrame(frame, frameAudio.data(), 0);
-            audio.insert(audio.end(), frameAudio.begin(), frameAudio.end());
-        });
-        return audio;
-    }
-
-    std::vector<int16_t> TtsEngine::ProcessSentenceToBuffer(const std::vector<PhonemeToken>& tokens,
-                                                             int16_t endPunct) {
-        return RenderDumpToBuffer(_be.Process(tokens, endPunct));
-    }
-
-    void TtsEngine::ProcessSentence(const std::vector<PhonemeToken>& tokens, int16_t endPunct,
-                                    std::function<void(const int16_t*, int32_t)> onBuffer,
-                                    std::vector<PhonemeEvent>* events, int32_t& sampleOffset) {
-        auto dump = _be.Process(tokens, endPunct);
-
-        if (events != nullptr) {
-            int32_t frameOffset = 0;
-            for (int32_t i = 0; i < dump.PhonBuf2InIndex; i++) {
-                int16_t phon = dump.PhonBuf2[i];
-                bool emitSil = phon == AudioProcessor::_SIL_ && (i == 0 || dump.PhonBuf2[i - 1] != AudioProcessor::_SIL_);
-                if (phon != AudioProcessor::_SIL_ || emitSil) {
-                    float t = (float)(sampleOffset + frameOffset * _synth.SampFrameLen) / SampleRate;
-                    events->emplace_back(phon, t,
-                        phon != AudioProcessor::_SIL_ && (dump.PhonCtrlBuf2[i] & AudioProcessor::kWord_Start) != 0);
-                }
-                frameOffset += dump.DurBuf[i];
-            }
-        }
-
-        auto audio = ProcessSentenceToBuffer(tokens, endPunct);
-        onBuffer(audio.data(), (int32_t)audio.size());
-        sampleOffset += (int32_t)audio.size();
     }
 
     void TtsEngine::ApplyCommand(const EmbeddedCmd::VoiceCommand& cmd) {

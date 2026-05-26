@@ -39,30 +39,31 @@ std::string SharpTalkSpeaker::PrepareText(const std::string& text) {
     return std::string("[:klattsch on] ") + buf + " " + text + " [:klattsch off]";
 }
 
-std::vector<int16_t> SharpTalkSpeaker::Speak(const std::string& text) {
+void SharpTalkSpeaker::Speak(const std::string& text,
+                             std::function<void(const int16_t*, int32_t)> onBuffer) {
     _isSpeaking = true;
     try {
-        auto [samples, events] = _engine.SpeakWithEvents(PrepareText(text));
-        _phonemeEvents = std::move(events);
-        _nextPhonemeIndex = 0;
-        _pollElapsed = 0.0f;
+        _engine.Speak(PrepareText(text), onBuffer);
         _isSpeaking = false;
-        return samples;
     } catch (...) {
         _isSpeaking = false;
         throw;
     }
 }
 
-std::pair<std::vector<int16_t>, std::vector<PhonemeEvent>> SharpTalkSpeaker::SpeakWithEvents(const std::string& text) {
+void SharpTalkSpeaker::SpeakWithEvents(const std::string& text,
+                                       std::function<void(const int16_t*, int32_t)> onBuffer,
+                                       std::function<void(const std::vector<PhonemeEvent>&)> onEventsReady) {
     _isSpeaking = true;
     try {
-        auto result = _engine.SpeakWithEvents(PrepareText(text));
-        _phonemeEvents = result.second;
-        _nextPhonemeIndex = 0;
-        _pollElapsed = 0.0f;
+        _engine.SpeakWithEvents(PrepareText(text), onBuffer,
+            [&](const std::vector<PhonemeEvent>& events) {
+                _phonemeEvents = events;
+                _nextPhonemeIndex = 0;
+                _pollElapsed = 0.0f;
+                onEventsReady(events);
+            });
         _isSpeaking = false;
-        return result;
     } catch (...) {
         _isSpeaking = false;
         throw;

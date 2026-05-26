@@ -206,18 +206,32 @@ public:
         js_update_status("processing...");
         js_update_phonemes("[]", -1);
         try {
-            auto [samples, events] = synthesize(text);
-            applyVolume(samples, _outputVolume);
-            buildPhonemeJson(events);
-            js_init_audio(_sampleRate);
-            double playAt = js_reserve_start_time(_sampleRate);
-            js_play_pcm(samples.data(), (int)samples.size(), _sampleRate);
+            prepareEngine();
+            _speaker.KlattschMode = false;
+            int32_t totalSamples = 0;
+            double playAt = 0.0;
+            _speaker.SpeakWithEvents(buildSynText(text),
+                [&](const int16_t* buf, int32_t len) {
+                    if (std::fabs(_outputVolume - 1.0f) > 0.001f) {
+                        std::vector<int16_t> chunk(buf, buf + len);
+                        applyVolume(chunk, _outputVolume);
+                        js_play_pcm(chunk.data(), len, _sampleRate);
+                    } else {
+                        js_play_pcm(buf, len, _sampleRate);
+                    }
+                    totalSamples += len;
+                },
+                [&](const std::vector<PhonemeEvent>& events) {
+                    buildPhonemeJson(events);
+                    js_init_audio(_sampleRate);
+                    playAt = js_reserve_start_time(_sampleRate);
+                    js_update_phonemes(_codesJson.c_str(), -1);
+                });
 
             char status[128];
-            int ms = _sampleRate > 0 ? (int)((int64_t)samples.size() * 1000 / _sampleRate) : 0;
+            int ms = _sampleRate > 0 ? (int)((int64_t)totalSamples * 1000 / _sampleRate) : 0;
             std::snprintf(status, sizeof(status), "ready — %d ms, %d phonemes", ms, (int)_phonCodes.size());
             js_update_status(status);
-            js_update_phonemes(_codesJson.c_str(), -1);
 
             if (!_phonCodes.empty()) {
                 js_start_phoneme_tracking(_codesJson.c_str(), _timesJson.c_str(), playAt);
@@ -237,10 +251,16 @@ public:
                 (double)_speaker.KlBaseF0, (double)_speaker.KlRate, code.c_str());
             prepareEngine();
             _speaker.KlattschMode = false;
-            auto [samples, _ignored] = _speaker.SpeakWithEvents(buf);
-            applyVolume(samples, _outputVolume);
             js_init_audio(_sampleRate);
-            js_play_pcm(samples.data(), (int)samples.size(), _sampleRate);
+            _speaker.Speak(buf, [&](const int16_t* chunk, int32_t len) {
+                if (std::fabs(_outputVolume - 1.0f) > 0.001f) {
+                    std::vector<int16_t> tmp(chunk, chunk + len);
+                    applyVolume(tmp, _outputVolume);
+                    js_play_pcm(tmp.data(), len, _sampleRate);
+                } else {
+                    js_play_pcm(chunk, len, _sampleRate);
+                }
+            });
         } catch (...) {}
     }
 
@@ -253,7 +273,12 @@ public:
     void DownloadWav(const std::string& text) {
         if (text.empty()) return;
         try {
-            auto [samples, _ignored] = synthesize(text);
+            prepareEngine();
+            _speaker.KlattschMode = false;
+            std::vector<int16_t> samples;
+            _speaker.Speak(buildSynText(text), [&](const int16_t* buf, int32_t len) {
+                samples.insert(samples.end(), buf, buf + len);
+            });
             applyVolume(samples, _outputVolume);
             auto wav = buildWav(samples, _sampleRate);
             js_download_bytes(wav.data(), (int)wav.size(), "speech.wav", "audio/wav");
@@ -422,13 +447,6 @@ private:
             (double)_speaker.KlVibrato, (double)_speaker.KlVibRate,
             (double)_speaker.KlAsp, (double)_speaker.KlTilt, (double)_speaker.KlEffort);
         return std::string("[:klattsch on] ") + buf + " " + text + " [:klattsch off]";
-    }
-
-    std::pair<std::vector<int16_t>, std::vector<PhonemeEvent>>
-    synthesize(const std::string& text) {
-        prepareEngine();
-        _speaker.KlattschMode = false;
-        return _speaker.SpeakWithEvents(buildSynText(text));
     }
 
     void buildPhonemeJson(const std::vector<PhonemeEvent>& events) {

@@ -65,8 +65,6 @@ namespace SharpTalk {
 
         void ApplyVoice() { RebuildPipeline(); }
 
-        std::vector<int16_t> Speak(const std::string& text);
-
         struct PitchFrameRecord {
             std::string Phoneme;
             int32_t FrameInPhon;
@@ -89,25 +87,13 @@ namespace SharpTalk {
         // Returns one record per synthesis frame (5 ms each) with pitch and tilt diagnostics.
         std::vector<PitchFrameRecord> DumpPitchFrames(const std::string& text);
 
-        void Speak(const std::string& text, std::function<void(const int16_t*, int32_t)> onBuffer);
+        void Speak(const std::string& text,
+                   std::function<void(const int16_t*, int32_t)> onBuffer);
 
-        /// Like Speak, but also returns a timeline of phoneme events with start times
-        /// in seconds relative to the start of the returned audio.
-        std::pair<std::vector<int16_t>, std::vector<PhonemeEvent>> SpeakWithEvents(const std::string& text);
-
-        // Synchronous streaming: synthesizes in chunks, invoking onBuffer for each.
-        // C# async Task SpeakAsync -> synchronous in C++ (no async/await).
-        void SpeakAsync(const std::string& text,
-                        std::function<void(const int16_t*, int32_t)> onBuffer);
-
-        // Phase 1, fast (_be.Process per sentence) -> collect events + dumps.
-        // Calls onEventsReady before any audio is rendered so the UI can set up
-        // tracking while the first frame hasn't been synthesized yet.
-        // Phase 2, stream formant frames from pre-computed dumps.
-        void SpeakAsyncWithEvents(
+        void SpeakWithEvents(
             const std::string& text,
             std::function<void(const int16_t*, int32_t)> onBuffer,
-            std::function<void(std::vector<PhonemeEvent>&)> onEventsReady);
+            std::function<void(const std::vector<PhonemeEvent>&)> onEventsReady);
 
     private:
         Phonemizer _fe;
@@ -116,22 +102,12 @@ namespace SharpTalk {
         SpeechRenderer _renderer;
         KlattSynthesizer _synth;
 
-        void ProcessKlattsch(const std::string& text,
-                             std::function<void(const int16_t*, int32_t)> onBuffer);
-
         void ProcessSentenceStreaming(const std::vector<PhonemeToken>& tokens, int16_t endPunct,
                                      std::function<void(const int16_t*, int32_t)> onBuffer);
 
         void ProcessSentenceStreamingFromDump(const SynthInputDump& dump,
                                               std::function<void(const int16_t*, int32_t)> onBuffer);
 
-        std::vector<int16_t> RenderDumpToBuffer(const SynthInputDump& dump);
-        std::vector<int16_t> ProcessSentenceToBuffer(const std::vector<PhonemeToken>& tokens,
-                                                     int16_t endPunct);
-
-        void ProcessSentence(const std::vector<PhonemeToken>& tokens, int16_t endPunct,
-                             std::function<void(const int16_t*, int32_t)> onBuffer,
-                             std::vector<PhonemeEvent>* events, int32_t& sampleOffset);
 
         void ApplyCommand(const EmbeddedCmd::VoiceCommand& cmd);
 
