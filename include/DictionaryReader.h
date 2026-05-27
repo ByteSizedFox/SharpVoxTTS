@@ -1,5 +1,5 @@
-#ifndef SHARPVOX_LEXICON_READER_H
-#define SHARPVOX_LEXICON_READER_H
+#ifndef SHARPVOX_DICTIONARY_READER_H
+#define SHARPVOX_DICTIONARY_READER_H
 
 #include <cstdint>
 #include <string>
@@ -33,4 +33,4 @@ private:
 
 }  // namespace SharpVox
 
-#endif  // SHARPVOX_LEXICON_READER_H
+#endif  // SHARPVOX_DICTIONARY_READER_H

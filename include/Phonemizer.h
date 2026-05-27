@@ -8,7 +8,7 @@
 #include <utility>
 #include "../include/AudioProcessor.h"
 #include "../include/SynthData.h"
-#include "../include/LexiconReader.h"
+#include "../include/DictionaryReader.h"
 
 namespace SharpVox {
 

@@ -1,7 +1,7 @@
 #include "../include/Phonemizer.h"
 #include "../include/AudioProcessor.h"
 #include "../include/LetterToSound.h"
-#include "../include/LexiconReader.h"
+#include "../include/DictionaryReader.h"
 #include "../include/Morphology.h"
 #include "../include/HeteronymResolver.h"
 #include "../include/LibraryData.h"

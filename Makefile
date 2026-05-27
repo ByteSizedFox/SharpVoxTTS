@@ -13,7 +13,7 @@ LIB_SRCS := \
     src/TtsEngine.cpp \
     src/Phonemizer.cpp \
     src/LetterToSound.cpp \
-    src/LexiconReader.cpp \
+    src/DictionaryReader.cpp \
     src/LibraryDataDictionary.cpp \
     src/LibraryDataSymbols.cpp \
     src/Morphology.cpp \
