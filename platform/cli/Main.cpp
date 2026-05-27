@@ -4,7 +4,14 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#ifdef _WIN32
+#include <windows.h>
+#include <io.h>
+#define STDIN_FILENO 0
+#define isatty _isatty
+#else
 #include <unistd.h>
+#endif
 #include <vector>
 
 #include "../../include/LibraryData.h"
@@ -72,15 +79,34 @@ static std::string ReadAllText(const std::string& path) {
 // Falls back to "." on failure.
 static std::string GetExeDir() {
     char buf[4096] = {};
+#ifdef _WIN32
+    DWORD len = GetModuleFileNameA(NULL, buf, sizeof(buf));
+    if (len == 0 || len == sizeof(buf)) {
+        return ".";
+    }
+#else
     ssize_t len = ::readlink("/proc/self/exe", buf, sizeof(buf) - 1);
     if (len <= 0) {
         return ".";
     }
     buf[len] = '\0';
+#endif
     std::string path(buf);
-    auto slash = path.rfind('/');
+    auto slash = path.rfind(
+#ifdef _WIN32
+        '\\'
+#else
+        '/'
+#endif
+    );
     if (slash == std::string::npos) {
+        // Check for forward slash on Windows too just in case
+#ifdef _WIN32
+        slash = path.rfind('/');
+        if (slash == std::string::npos) return ".";
+#else
         return ".";
+#endif
     }
     return path.substr(0, slash);
 }
