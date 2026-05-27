@@ -1,4 +1,4 @@
-#include "sharpvox_speaker.h"
+#include "sharpvox.h"
 
 #include <cstdio>
 #include <stdexcept>

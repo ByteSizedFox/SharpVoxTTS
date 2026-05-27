@@ -1,5 +1,5 @@
-#ifndef SHARPVOX_SPEAKER_H
-#define SHARPVOX_SPEAKER_H
+#ifndef SHARPVOX_H
+#define SHARPVOX_H
 
 #include <cstdint>
 #include <functional>
@@ -293,4 +293,4 @@ private:
 
 }  // namespace SharpVox
 
-#endif  // SHARPVOX_SPEAKER_H
+#endif  // SHARPVOX_H

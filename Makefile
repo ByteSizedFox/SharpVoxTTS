@@ -31,7 +31,7 @@ CLI_SRCS := \
 CLI_OBJS := $(CLI_SRCS:.cpp=.o)
 
 # Shared library sources
-SHLIB_SRCS := platform/lib/sharpvox_speaker.cpp
+SHLIB_SRCS := platform/lib/sharpvox.cpp
 SHLIB_OBJS := $(SHLIB_SRCS:.cpp=.o)
 
 # Output targets
@@ -44,7 +44,7 @@ TEST_BIN  := tests/dump_stages
 
 # WASM sources (same engine + speaker + wasm interop)
 WASM_SRCS := $(LIB_SRCS) \
-    platform/lib/sharpvox_speaker.cpp \
+    platform/lib/sharpvox.cpp \
     platform/wasm/sharpvox_wasm.cpp
 
 WASM_OUT  := platform/wasm/wwwroot/js/sharpvox.js

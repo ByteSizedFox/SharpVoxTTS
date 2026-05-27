@@ -8,7 +8,7 @@
 #include <vector>
 #include <stdexcept>
 
-#include "../../platform/lib/sharpvox_speaker.h"
+#include "../../platform/lib/sharpvox.h"
 #include "../../include/audio_processor.h"
 
 using namespace SharpVox;
