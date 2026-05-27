@@ -213,7 +213,7 @@ public:
             Ctx ctx { this, 0, 0.0 };
 
             _speaker.SpeakWithEvents(buildSynText(text),
-                [](const int16_t* buf, int32_t len, void* ud) {
+                [](SharpVoxSpeaker* /*speaker*/, const int16_t* buf, int32_t len, void* ud) {
                     auto* c = static_cast<Ctx*>(ud);
                     if (std::fabs(c->self->_outputVolume - 1.0f) > 0.001f) {
                         std::vector<int16_t> chunk(buf, buf + len);
@@ -224,7 +224,7 @@ public:
                     }
                     c->totalSamples += len;
                 },
-                [](const PhonemeEvent* events, int32_t count, void* ud) {
+                [](SharpVoxSpeaker* /*speaker*/, const PhonemeEvent* events, int32_t count, void* ud) {
                     auto* c = static_cast<Ctx*>(ud);
                     c->self->buildPhonemeJson(events, count);
                     js_init_audio(c->self->_sampleRate);
@@ -259,7 +259,7 @@ public:
             struct AudCtx { SharpVoxInterop* self; };
             AudCtx audCtx { this };
             js_init_audio(_sampleRate);
-            _speaker.Speak(buf, [](const int16_t* chunk, int32_t len, void* ud) {
+            _speaker.Speak(buf, [](SharpVoxSpeaker* /*speaker*/, const int16_t* chunk, int32_t len, void* ud) {
                 auto* c = static_cast<AudCtx*>(ud);
                 if (std::fabs(c->self->_outputVolume - 1.0f) > 0.001f) {
                     std::vector<int16_t> tmp(chunk, chunk + len);
@@ -284,7 +284,7 @@ public:
             prepareEngine();
             _speaker.KlattschMode = false;
             std::vector<int16_t> samples;
-            _speaker.Speak(buildSynText(text), [](const int16_t* buf, int32_t len, void* ud) {
+            _speaker.Speak(buildSynText(text), [](SharpVoxSpeaker* /*speaker*/, const int16_t* buf, int32_t len, void* ud) {
                 auto* s = static_cast<std::vector<int16_t>*>(ud);
                 s->insert(s->end(), buf, buf + len);
             }, &samples);

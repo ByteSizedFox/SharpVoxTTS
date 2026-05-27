@@ -21,11 +21,11 @@ public:
     bool IsSpeaking() const { return _isSpeaking; }
 
     void Speak(const std::string& text,
-               void (*onBuffer)(const int16_t* buf, int32_t len, void* userdata),
+               void (*onBuffer)(SharpVoxSpeaker* speaker, const int16_t* buf, int32_t len, void* userdata),
                void* userdata = nullptr);
     void SpeakWithEvents(const std::string& text,
-                         void (*onBuffer)(const int16_t* buf, int32_t len, void* userdata),
-                         void (*onEventsReady)(const PhonemeEvent* events, int32_t count, void* userdata),
+                         void (*onBuffer)(SharpVoxSpeaker* speaker, const int16_t* buf, int32_t len, void* userdata),
+                         void (*onEventsReady)(SharpVoxSpeaker* speaker, const PhonemeEvent* events, int32_t count, void* userdata),
                          void* userdata = nullptr);
 
     // Polls pending phoneme events up to absoluteSeconds and fires OnPhoneme for each
@@ -292,7 +292,7 @@ private:
     // yep, make a new one
     VoiceData BuildVoice();
 
-    struct SpeakEventsCtx;
+    struct SpeakCtx;
     static void SpeakBufAdapter(const int16_t* buf, int32_t len, void* ud);
     static void SpeakEventsAdapter(const PhonemeEvent* events, int32_t count, void* ud);
 };

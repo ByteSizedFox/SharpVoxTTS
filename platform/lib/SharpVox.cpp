@@ -39,12 +39,35 @@ std::string SharpVoxSpeaker::PrepareText(const std::string& text) {
     return std::string("[:klattsch on] ") + buf + " " + text + " [:klattsch off]";
 }
 
+struct SharpVoxSpeaker::SpeakCtx {
+    SharpVoxSpeaker* speaker;
+    void (*userOnBuffer)(SharpVoxSpeaker*, const int16_t*, int32_t, void*);
+    void (*userOnEvents)(SharpVoxSpeaker*, const PhonemeEvent*, int32_t, void*);
+    void* userdata;
+};
+
+void SharpVoxSpeaker::SpeakBufAdapter(const int16_t* buf, int32_t len, void* ud) {
+    auto* c = static_cast<SpeakCtx*>(ud);
+    c->userOnBuffer(c->speaker, buf, len, c->userdata);
+}
+
+void SharpVoxSpeaker::SpeakEventsAdapter(const PhonemeEvent* events, int32_t count, void* ud) {
+    auto* c = static_cast<SpeakCtx*>(ud);
+    c->speaker->_phonemeEvents.assign(events, events + count);
+    c->speaker->_nextPhonemeIndex = 0;
+    c->speaker->_pollElapsed = 0.0f;
+    if (c->userOnEvents) {
+        c->userOnEvents(c->speaker, events, count, c->userdata);
+    }
+}
+
 void SharpVoxSpeaker::Speak(const std::string& text,
-                             void (*onBuffer)(const int16_t*, int32_t, void*),
+                             void (*onBuffer)(SharpVoxSpeaker*, const int16_t*, int32_t, void*),
                              void* userdata) {
     _isSpeaking = true;
     try {
-        _engine.Speak(PrepareText(text), onBuffer, userdata);
+        SpeakCtx ctx { this, onBuffer, nullptr, userdata };
+        _engine.Speak(PrepareText(text), SpeakBufAdapter, &ctx);
         _isSpeaking = false;
     } catch (...) {
         _isSpeaking = false;
@@ -52,35 +75,13 @@ void SharpVoxSpeaker::Speak(const std::string& text,
     }
 }
 
-struct SharpVoxSpeaker::SpeakEventsCtx {
-    SharpVoxSpeaker* speaker;
-    void (*userOnBuffer)(const int16_t*, int32_t, void*);
-    void (*userOnEvents)(const PhonemeEvent*, int32_t, void*);
-    void* userdata;
-};
-
-void SharpVoxSpeaker::SpeakBufAdapter(const int16_t* buf, int32_t len, void* ud) {
-    auto* c = static_cast<SpeakEventsCtx*>(ud);
-    c->userOnBuffer(buf, len, c->userdata);
-}
-
-void SharpVoxSpeaker::SpeakEventsAdapter(const PhonemeEvent* events, int32_t count, void* ud) {
-    auto* c = static_cast<SpeakEventsCtx*>(ud);
-    c->speaker->_phonemeEvents.assign(events, events + count);
-    c->speaker->_nextPhonemeIndex = 0;
-    c->speaker->_pollElapsed = 0.0f;
-    if (c->userOnEvents) {
-        c->userOnEvents(events, count, c->userdata);
-    }
-}
-
 void SharpVoxSpeaker::SpeakWithEvents(const std::string& text,
-                                       void (*onBuffer)(const int16_t*, int32_t, void*),
-                                       void (*onEventsReady)(const PhonemeEvent*, int32_t, void*),
+                                       void (*onBuffer)(SharpVoxSpeaker*, const int16_t*, int32_t, void*),
+                                       void (*onEventsReady)(SharpVoxSpeaker*, const PhonemeEvent*, int32_t, void*),
                                        void* userdata) {
     _isSpeaking = true;
     try {
-        SpeakEventsCtx ctx { this, onBuffer, onEventsReady, userdata };
+        SpeakCtx ctx { this, onBuffer, onEventsReady, userdata };
         _engine.SpeakWithEvents(PrepareText(text), SpeakBufAdapter, SpeakEventsAdapter, &ctx);
         _isSpeaking = false;
     } catch (...) {
