@@ -14,54 +14,71 @@
 using namespace SharpVox;
 using namespace emscripten;
 
-// ── JS callbacks ──────────────────────────────────────────────────────────────
+// ── JS callbacks (all run in worker context — communicate via postMessage) ─────
 
 EM_JS(void, js_init_audio, (int sr), {
-    if (globalThis.initAudio) globalThis.initAudio(sr);
+    self.postMessage({ type: 'initAudio', sr: sr });
 });
 
 EM_JS(void, js_play_pcm, (const int16_t* ptr, int numSamples, int sr), {
-    if (!globalThis.playAudioStream) return;
-    globalThis.playAudioStream(HEAPU8.slice(ptr, ptr + numSamples * 2), sr);
+    const pcm = HEAPU8.slice(ptr, ptr + numSamples * 2);
+    self.postMessage({ type: 'playPcm', pcm: pcm, sr: sr }, [pcm.buffer]);
 });
 
 EM_JS(void, js_stop_audio, (), {
-    if (globalThis.stopAudio) globalThis.stopAudio();
+    self.postMessage({ type: 'stopAudio' });
 });
 
 EM_JS(void, js_stop_phoneme_tracking, (), {
-    if (globalThis.stopPhonemeTracking) globalThis.stopPhonemeTracking();
-});
-
-EM_JS(double, js_reserve_start_time, (int sr), {
-    return globalThis.reserveStartTime ? globalThis.reserveStartTime(sr) : 0;
+    self.postMessage({ type: 'stopPhonemeTracking' });
 });
 
 EM_JS(void, js_start_phoneme_tracking, (const char* codes, const char* times, double playAt), {
-    if (globalThis.startPhonemeTracking)
-        globalThis.startPhonemeTracking(UTF8ToString(codes), UTF8ToString(times), playAt);
+    // playAt is determined on the main thread from when initAudio was received
+    self.postMessage({ type: 'startPhonemeTracking', codes: UTF8ToString(codes), times: UTF8ToString(times) });
 });
 
 EM_JS(void, js_update_status, (const char* msg), {
-    if (globalThis.ui && globalThis.ui.updateStatus) globalThis.ui.updateStatus(UTF8ToString(msg));
+    self.postMessage({ type: 'updateStatus', msg: UTF8ToString(msg) });
 });
 
 EM_JS(void, js_update_phonemes, (const char* json, int idx), {
-    if (globalThis.ui && globalThis.ui.updatePhonemes) globalThis.ui.updatePhonemes(UTF8ToString(json), idx);
+    self.postMessage({ type: 'updatePhonemes', json: UTF8ToString(json), idx: idx });
 });
 
 EM_JS(void, js_update_all_params, (const char* json), {
-    if (globalThis.ui && globalThis.ui.updateAllParams) globalThis.ui.updateAllParams(UTF8ToString(json));
+    self.postMessage({ type: 'updateAllParams', json: UTF8ToString(json) });
 });
 
 EM_JS(void, js_download_bytes, (const uint8_t* ptr, int len, const char* filename, const char* mime), {
-    if (globalThis.downloadBytes)
-        globalThis.downloadBytes(HEAPU8.slice(ptr, ptr + len), UTF8ToString(filename), UTF8ToString(mime));
+    const data = HEAPU8.slice(ptr, ptr + len);
+    self.postMessage({ type: 'downloadBytes', data: data, filename: UTF8ToString(filename), mime: UTF8ToString(mime) }, [data.buffer]);
 });
 
 EM_JS(void, js_download_file, (const char* filename, const char* content), {
-    if (globalThis.downloadFile)
-        globalThis.downloadFile(UTF8ToString(filename), UTF8ToString(content));
+    self.postMessage({ type: 'downloadFile', filename: UTF8ToString(filename), content: UTF8ToString(content) });
+});
+
+EM_JS(void, js_start_video_export, (const uint8_t* pcm, int pcmLen, int sr,
+                                     const char* eventsJson, const char* timesJson,
+                                     const char* wordTimesJson, float duration,
+                                     const char* sourceText,
+                                     const char* lipsyncTimesJson,
+                                     const char* lipsyncV1Json,
+                                     const char* lipsyncV2Json), {
+    const data = HEAPU8.slice(pcm, pcm + pcmLen);
+    self.postMessage({
+        type: 'startVideoExport',
+        pcm: data, sr: sr,
+        eventsJson: UTF8ToString(eventsJson),
+        timesJson: UTF8ToString(timesJson),
+        wordTimesJson: UTF8ToString(wordTimesJson),
+        duration: duration,
+        sourceText: UTF8ToString(sourceText),
+        lipsyncTimesJson: UTF8ToString(lipsyncTimesJson),
+        lipsyncV1Json: UTF8ToString(lipsyncV1Json),
+        lipsyncV2Json: UTF8ToString(lipsyncV2Json)
+    }, [data.buffer]);
 });
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -115,6 +132,36 @@ static constexpr int kPhonemeTableSize = 69;
 static const char* phonemeName(int16_t id) {
     if (id < 0 || id >= kPhonemeTableSize) return nullptr;
     return AudioProcessor::PhonemeNamesTable[id];
+}
+
+static void visemeFor(int16_t ph, const char*& v1, const char*& v2) {
+    v1 = ""; v2 = "";
+    if (ph == AudioProcessor::_IY_ || ph == AudioProcessor::_IH_ || ph == AudioProcessor::_AX_ || ph == AudioProcessor::_IX_) { v1 = "vrc.v_ih"; return; }
+    if (ph == AudioProcessor::_EH_ || ph == AudioProcessor::_AE_ || ph == AudioProcessor::_EY_) { v1 = "vrc.v_e"; return; }
+    if (ph == AudioProcessor::_AH_ || ph == AudioProcessor::_AA_) { v1 = "vrc.v_aa"; return; }
+    if (ph == AudioProcessor::_AO_) { v1 = "vrc.v_oh"; return; }
+    if (ph == AudioProcessor::_UH_ || ph == AudioProcessor::_UW_) { v1 = "vrc.v_ou"; return; }
+    if (ph == AudioProcessor::_ER_ || ph == AudioProcessor::_XR_ || ph == AudioProcessor::_RX_) { v1 = "vrc.v_nn"; return; }
+    if (ph == AudioProcessor::_AY_) { v1 = "vrc.v_aa"; v2 = "vrc.v_ih"; return; }
+    if (ph == AudioProcessor::_OY_) { v1 = "vrc.v_oh"; v2 = "vrc.v_ih"; return; }
+    if (ph == AudioProcessor::_AW_) { v1 = "vrc.v_aa"; v2 = "vrc.v_ou"; return; }
+    if (ph == AudioProcessor::_OW_) { v1 = "vrc.v_oh"; v2 = "vrc.v_ou"; return; }
+    if (ph == AudioProcessor::_YU_) { v1 = "vrc.v_nn"; v2 = "vrc.v_ou"; return; }
+    if (ph == AudioProcessor::_IR_) { v1 = "vrc.v_ih"; v2 = "vrc.v_nn"; return; }
+    if (ph == AudioProcessor::_AR_) { v1 = "vrc.v_aa"; v2 = "vrc.v_nn"; return; }
+    if (ph == AudioProcessor::_OR_) { v1 = "vrc.v_oh"; v2 = "vrc.v_nn"; return; }
+    if (ph == AudioProcessor::_UR_) { v1 = "vrc.v_ou"; v2 = "vrc.v_nn"; return; }
+    if (ph == AudioProcessor::_M_  || ph == AudioProcessor::_P_ || ph == AudioProcessor::_B_) { v1 = "vrc.v_pp"; return; }
+    if (ph == AudioProcessor::_F_  || ph == AudioProcessor::_V_) { v1 = "vrc.v_ff"; return; }
+    if (ph == AudioProcessor::_TH_ || ph == AudioProcessor::_DH_) { v1 = "vrc.v_th"; return; }
+    if (ph == AudioProcessor::_S_  || ph == AudioProcessor::_Z_  || ph == AudioProcessor::_T_ ||
+        ph == AudioProcessor::_D_  || ph == AudioProcessor::_DX_) { v1 = "vrc.v_dd"; return; }
+    if (ph == AudioProcessor::_SH_ || ph == AudioProcessor::_ZH_ || ph == AudioProcessor::_CH_ || ph == AudioProcessor::_JH_) { v1 = "vrc.v_ch"; return; }
+    if (ph == AudioProcessor::_N_  || ph == AudioProcessor::_NG_ || ph == AudioProcessor::_K_ ||
+        ph == AudioProcessor::_G_  || ph == AudioProcessor::_Y_  || ph == AudioProcessor::_R_ ||
+        ph == AudioProcessor::_HH_ || ph == AudioProcessor::_EN_) { v1 = "vrc.v_nn"; return; }
+    if (ph == AudioProcessor::_L_  || ph == AudioProcessor::_LX_ || ph == AudioProcessor::_EL_) { v1 = "vrc.v_dd"; return; }
+    if (ph == AudioProcessor::_W_) { v1 = "vrc.v_ou"; return; }
 }
 
 // ── Interop class ─────────────────────────────────────────────────────────────
@@ -209,8 +256,8 @@ public:
             prepareEngine();
             _speaker.KlattschMode = false;
 
-            struct Ctx { SharpVoxInterop* self; int32_t totalSamples; double playAt; };
-            Ctx ctx { this, 0, 0.0 };
+            struct Ctx { SharpVoxInterop* self; int32_t totalSamples; };
+            Ctx ctx { this, 0 };
 
             _speaker.SpeakWithEvents(buildSynText(text),
                 [](SharpVoxSpeaker* /*speaker*/, const int16_t* buf, int32_t len, void* ud) {
@@ -228,7 +275,6 @@ public:
                     auto* c = static_cast<Ctx*>(ud);
                     c->self->buildPhonemeJson(events, count);
                     js_init_audio(c->self->_sampleRate);
-                    c->playAt = js_reserve_start_time(c->self->_sampleRate);
                     js_update_phonemes(c->self->_codesJson.c_str(), -1);
                 },
                 &ctx);
@@ -239,7 +285,7 @@ public:
             js_update_status(status);
 
             if (!_phonCodes.empty()) {
-                js_start_phoneme_tracking(_codesJson.c_str(), _timesJson.c_str(), ctx.playAt);
+                js_start_phoneme_tracking(_codesJson.c_str(), _timesJson.c_str(), 0.0);
             }
         } catch (const std::exception& e) {
             std::string err = std::string("error: ") + e.what();
@@ -292,6 +338,87 @@ public:
             auto wav = buildWav(samples, _sampleRate);
             js_download_bytes(wav.data(), (int)wav.size(), "speech.wav", "audio/wav");
         } catch (...) {}
+    }
+
+    void ExportVideo(const std::string& text) {
+        if (text.empty()) return;
+        try {
+            prepareEngine();
+            _speaker.KlattschMode = false;
+
+            std::vector<int16_t> samples;
+            std::string codesJson, timesJson, wordTimesJson;
+            std::string lsTimesJson, lsV1Json, lsV2Json;
+            codesJson    = "["; timesJson    = "["; wordTimesJson = "[";
+            lsTimesJson  = "["; lsV1Json     = "["; lsV2Json      = "[";
+            bool firstCode = true, firstWord = true, firstLs = true;
+
+            struct Ctx { SharpVoxInterop* self; std::vector<int16_t>* samples; };
+            Ctx ctx { this, &samples };
+
+            _speaker.SpeakWithEvents(buildSynText(text),
+                [](SharpVoxSpeaker* /*speaker*/, const int16_t* buf, int32_t len, void* ud) {
+                    auto* c = static_cast<Ctx*>(ud);
+                    c->samples->insert(c->samples->end(), buf, buf + len);
+                },
+                [](SharpVoxSpeaker* /*speaker*/, const PhonemeEvent* events, int32_t count, void* /*ud*/) {
+                    // events processed below after SpeakWithEvents returns
+                    (void)events; (void)count;
+                },
+                &ctx);
+
+            // Process phoneme events from the speaker's stored list
+            const auto& events = _speaker.PhonemeEvents();
+            for (const auto& e : events) {
+                const char* v1; const char* v2;
+                visemeFor(e.Phoneme, v1, v2);
+
+                char timeBuf[32];
+                std::snprintf(timeBuf, sizeof(timeBuf), "%g", (double)e.TimeSeconds);
+
+                // lipsync: all events
+                if (!firstLs) { lsTimesJson += ','; lsV1Json += ','; lsV2Json += ','; }
+                firstLs = false;
+                lsTimesJson += timeBuf;
+                lsV1Json    += jsonStr(v1);
+                lsV2Json    += jsonStr(v2);
+
+                if (e.Phoneme == AudioProcessor::_SIL_) { continue; }
+
+                const char* name = phonemeName(e.Phoneme);
+                if (!name) { continue; }
+
+                if (!firstCode) { codesJson += ','; timesJson += ','; }
+                firstCode = false;
+                codesJson += jsonStr(name);
+                timesJson += timeBuf;
+
+                if (e.IsWordStart) {
+                    if (!firstWord) { wordTimesJson += ','; }
+                    firstWord = false;
+                    wordTimesJson += timeBuf;
+                }
+            }
+
+            codesJson += ']'; timesJson += ']'; wordTimesJson += ']';
+            lsTimesJson += ']'; lsV1Json += ']'; lsV2Json += ']';
+
+            applyVolume(samples, _outputVolume);
+            float duration = _sampleRate > 0
+                ? (float)samples.size() / (float)_sampleRate
+                : 0.0f;
+
+            js_start_video_export(
+                reinterpret_cast<const uint8_t*>(samples.data()),
+                (int)(samples.size() * 2),
+                _sampleRate,
+                codesJson.c_str(), timesJson.c_str(),
+                wordTimesJson.c_str(), duration, text.c_str(),
+                lsTimesJson.c_str(), lsV1Json.c_str(), lsV2Json.c_str());
+        } catch (const std::exception& e) {
+            std::string err = std::string("error: ") + e.what();
+            js_update_status(err.c_str());
+        }
     }
 
     void OnPresetChange(const std::string& val) {
@@ -566,5 +693,6 @@ EMSCRIPTEN_BINDINGS(sharpvox_interop) {
         .function("OnPresetChange",  &SharpVoxInterop::OnPresetChange)
         .function("ExportPreset",    &SharpVoxInterop::ExportPreset)
         .function("HandleImport",    &SharpVoxInterop::HandleImport)
-        .function("ConvertUst",      &SharpVoxInterop::ConvertUst);
+        .function("ConvertUst",      &SharpVoxInterop::ConvertUst)
+        .function("ExportVideo",     &SharpVoxInterop::ExportVideo);
 }

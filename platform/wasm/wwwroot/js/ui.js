@@ -139,7 +139,7 @@ window.ui = {
             bank = compat ? "auto" : null;
         }
 
-        const resultJson = window.sharpVox?.ConvertUst(text, language, offset, bank);
+        const resultJson = await window.sharpVox?.ConvertUst(text, language, offset, bank);
         if (resultJson) {
             const result = JSON.parse(resultJson);
             document.getElementById('inputText').value = result.klattsch;
