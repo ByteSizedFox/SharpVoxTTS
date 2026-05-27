@@ -23,7 +23,6 @@ static void PrintHelp() {
     std::cout << "  -o, --output <file>    Output WAV file (default: out.wav)\n";
     std::cout << "  -i, --input <file>     Input text file (if text not provided as argument)\n";
     std::cout << "  -r, --rate <value>     Speech rate (default: 160)\n";
-    std::cout << "  -p, --pitch <value>    Base pitch in Hz (default: 104)\n";
     std::cout << "  -s, --samplerate <hz>  Output sample rate (default: 48000)\n";
     std::cout << "  -v, --voice <name>     Voice preset name \xe2\x80\x94 loads voices/<name>.json, fallback to baseline/whisper builtins\n";
     std::cout << "  -h, --help             Show this help message\n";
@@ -223,7 +222,6 @@ int main(int argc, char* argv[]) {
     std::string outputPath = "out.wav";
     std::string inputPath;
     int32_t rate = 160;
-    int32_t pitch = 104;
     int32_t sampleRate = 48000;
     std::string voicePreset = "baseline";
 
@@ -245,13 +243,6 @@ int main(int argc, char* argv[]) {
                 int32_t r = 0;
                 if (TryParseInt(argv[i], r)) {
                     rate = r;
-                }
-            }
-        } else if (arg == "-p" || arg == "--pitch") {
-            if (++i < argc) {
-                int32_t p = 0;
-                if (TryParseInt(argv[i], p)) {
-                    pitch = p;
                 }
             }
         } else if (arg == "-s" || arg == "--samplerate") {
@@ -317,7 +308,6 @@ int main(int argc, char* argv[]) {
         }
     }
     voice.Rate = static_cast<int16_t>(rate);
-    voice.PitchHz = static_cast<int16_t>(pitch);
 
     TtsEngine* engine = nullptr;
     try {
