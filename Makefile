@@ -1,7 +1,7 @@
 CXX      := g++
 CXXFLAGS := -std=c++11 -O2 -Wall -Wextra -Iinclude -fPIC
 LDFLAGS  :=
-LDLIBS   := -lz -lm
+LDLIBS   := -lm
 
 # Library sources (all files shared by both targets)
 LIB_SRCS := \
@@ -53,7 +53,6 @@ EMCC      := emcc
 EMCCFLAGS := -std=c++17 -O2 -Iinclude \
     --bind \
     -fwasm-exceptions \
-    -sUSE_ZLIB=1 \
     -sALLOW_MEMORY_GROWTH=1 \
     -sINITIAL_MEMORY=134217728 \
     -sSTACK_SIZE=2097152 \
