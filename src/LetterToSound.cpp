@@ -1,4 +1,4 @@
-#include "letter_to_sound.h"
+#include "LetterToSound.h"
 
 #include <cctype>
 #include <cstring>

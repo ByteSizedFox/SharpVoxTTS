@@ -6,11 +6,11 @@
 #include <string>
 #include <vector>
 
-#include "../include/audio_processor.h"
-#include "../include/library_data.h"
-#include "../include/phonemizer.h"
-#include "../include/synth_data.h"
-#include "../include/voice_data.h"
+#include "../include/AudioProcessor.h"
+#include "../include/LibraryData.h"
+#include "../include/Phonemizer.h"
+#include "../include/SynthData.h"
+#include "../include/VoiceData.h"
 
 int main() {
     using namespace SharpVox;

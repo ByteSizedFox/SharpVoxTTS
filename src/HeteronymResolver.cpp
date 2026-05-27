@@ -1,6 +1,6 @@
-#include "../include/heteronym_resolver.h"
-#include "../include/audio_processor.h"
-#include "../include/library_data.h"
+#include "../include/HeteronymResolver.h"
+#include "../include/AudioProcessor.h"
+#include "../include/LibraryData.h"
 #include <unordered_map>
 #include <unordered_set>
 #include <cstdint>

@@ -6,13 +6,13 @@
 #include <string>
 #include <vector>
 #include <unordered_map>
-#include "../include/audio_processor.h"
-#include "../include/speech_renderer.h"
-#include "../include/klatt_synthesizer.h"
-#include "../include/text_commands.h"
-#include "../include/phonemizer.h"
-#include "../include/voice_data.h"
-#include "../include/synth_data.h"
+#include "../include/AudioProcessor.h"
+#include "../include/SpeechRenderer.h"
+#include "../include/KlattSynthesizer.h"
+#include "../include/TextCommands.h"
+#include "../include/Phonemizer.h"
+#include "../include/VoiceData.h"
+#include "../include/SynthData.h"
 
 namespace SharpVox {
 

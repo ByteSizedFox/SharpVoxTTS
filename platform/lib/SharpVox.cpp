@@ -1,10 +1,10 @@
-#include "sharpvox.h"
+#include "SharpVox.h"
 
 #include <cstdio>
 #include <stdexcept>
 
-#include "../../include/tts_engine.h"
-#include "../../include/library_data.h"
+#include "../../include/TtsEngine.h"
+#include "../../include/LibraryData.h"
 
 namespace SharpVox {
 

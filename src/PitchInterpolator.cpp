@@ -1,7 +1,7 @@
-#include "../include/pitch_interpolator.h"
-#include "../include/synth_data.h"
-#include "../include/voice_data.h"
-#include "../include/tables.h"
+#include "../include/PitchInterpolator.h"
+#include "../include/SynthData.h"
+#include "../include/VoiceData.h"
+#include "../include/Tables.h"
 #include <cmath>
 #include <cstdint>
 

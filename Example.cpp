@@ -1,6 +1,6 @@
 #include <cstdio>
 #include <vector>
-#include "platform/lib/sharpvox.h"
+#include "platform/lib/SharpVox.h"
 
 using SharpVox::SharpVoxSpeaker;
 using SharpVox::PhonemeEvent;

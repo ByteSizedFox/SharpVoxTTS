@@ -6,9 +6,9 @@
 #include <string>
 #include <vector>
 #include <utility>
-#include "../include/audio_processor.h"
-#include "../include/synth_data.h"
-#include "../include/lexicon_reader.h"
+#include "../include/AudioProcessor.h"
+#include "../include/SynthData.h"
+#include "../include/LexiconReader.h"
 
 namespace SharpVox {
 

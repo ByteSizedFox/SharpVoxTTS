@@ -1,4 +1,4 @@
-#include "../include/klattsch_parser.h"
+#include "../include/KlattschParser.h"
 
 #include <algorithm>
 #include <cassert>
@@ -11,7 +11,7 @@
 
 // PhonemeToken, phoneme-ID constants (AudioProcessor::_IY_ etc.), and ctrl-flag constants
 // (AudioProcessor::kSingingPhon, AudioProcessor::kWord_Start, etc.) all come from tts_engine.h.
-#include "../include/tts_engine.h"
+#include "../include/TtsEngine.h"
 
 namespace SharpVox {
 

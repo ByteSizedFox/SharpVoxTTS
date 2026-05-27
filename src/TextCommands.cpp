@@ -1,4 +1,4 @@
-#include "../include/text_commands.h"
+#include "../include/TextCommands.h"
 
 #include <algorithm>
 #include <cassert>
@@ -11,9 +11,9 @@
 #include <vector>
 
 // PhonemeToken, phoneme-ID constants, and ctrl-flag constants all come from tts_engine.h.
-#include "../include/tts_engine.h"
-#include "../include/tables.h"
-#include "../include/klattsch_parser.h"
+#include "../include/TtsEngine.h"
+#include "../include/Tables.h"
+#include "../include/KlattschParser.h"
 
 namespace SharpVox {
 

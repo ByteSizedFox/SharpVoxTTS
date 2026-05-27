@@ -4,11 +4,11 @@
 #include <cstdint>
 #include <functional>
 #include <vector>
-#include "../include/synth_data.h"
-#include "../include/voice_data.h"
-#include "../include/tables.h"
-#include "../include/klatt_synthesizer.h"
-#include "../include/pitch_interpolator.h"
+#include "../include/SynthData.h"
+#include "../include/VoiceData.h"
+#include "../include/Tables.h"
+#include "../include/KlattSynthesizer.h"
+#include "../include/PitchInterpolator.h"
 
 namespace SharpVox {
 

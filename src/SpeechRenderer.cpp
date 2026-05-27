@@ -1,5 +1,5 @@
-#include "../include/speech_renderer.h"
-#include "../include/audio_processor.h"
+#include "../include/SpeechRenderer.h"
+#include "../include/AudioProcessor.h"
 #include <algorithm>
 #include <cmath>
 #include <cstring>

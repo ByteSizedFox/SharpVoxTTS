@@ -1,6 +1,6 @@
-#include "../include/klatt_synthesizer.h"
-#include "../include/synth_data.h"
-#include "../include/voice_data.h"
+#include "../include/KlattSynthesizer.h"
+#include "../include/SynthData.h"
+#include "../include/VoiceData.h"
 
 #include <cstdint>
 #include <cmath>

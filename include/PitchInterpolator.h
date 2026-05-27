@@ -3,8 +3,8 @@
 
 #include <cstdint>
 #include <vector>
-#include "synth_data.h"
-#include "voice_data.h"
+#include "SynthData.h"
+#include "VoiceData.h"
 
 namespace SharpVox {
 

@@ -7,9 +7,9 @@
 #include <unistd.h>
 #include <vector>
 
-#include "../../include/library_data.h"
-#include "../../include/tts_engine.h"
-#include "wav_writer.h"
+#include "../../include/LibraryData.h"
+#include "../../include/TtsEngine.h"
+#include "WavWriter.h"
 
 namespace SharpVox {
 namespace Cli {

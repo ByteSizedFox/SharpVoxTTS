@@ -1,5 +1,5 @@
-#include "morphology.h"
-#include "../include/lexicon_reader.h"
+#include "Morphology.h"
+#include "../include/LexiconReader.h"
 
 #include <cstring>
 #include <initializer_list>

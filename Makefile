@@ -5,33 +5,33 @@ LDLIBS   := -lz -lm
 
 # Library sources (all files shared by both targets)
 LIB_SRCS := \
-    src/tables.cpp \
-    src/klatt_synthesizer.cpp \
-    src/pitch_interpolator.cpp \
-    src/audio_processor.cpp \
-    src/speech_renderer.cpp \
-    src/tts_engine.cpp \
-    src/phonemizer.cpp \
-    src/letter_to_sound.cpp \
-    src/lexicon_reader.cpp \
-    src/library_data_dictionary.cpp \
-    src/library_data_symbols.cpp \
-    src/morphology.cpp \
-    src/heteronym_resolver.cpp \
-    src/text_commands.cpp \
-    src/klattsch_parser.cpp
+    src/Tables.cpp \
+    src/KlattSynthesizer.cpp \
+    src/PitchInterpolator.cpp \
+    src/AudioProcessor.cpp \
+    src/SpeechRenderer.cpp \
+    src/TtsEngine.cpp \
+    src/Phonemizer.cpp \
+    src/LetterToSound.cpp \
+    src/LexiconReader.cpp \
+    src/LibraryDataDictionary.cpp \
+    src/LibraryDataSymbols.cpp \
+    src/Morphology.cpp \
+    src/HeteronymResolver.cpp \
+    src/TextCommands.cpp \
+    src/KlattschParser.cpp
 
 LIB_OBJS := $(LIB_SRCS:.cpp=.o)
 
 # CLI sources
 CLI_SRCS := \
-    platform/cli/main.cpp \
-    platform/cli/wav_writer.cpp
+    platform/cli/Main.cpp \
+    platform/cli/WavWriter.cpp
 
 CLI_OBJS := $(CLI_SRCS:.cpp=.o)
 
 # Shared library sources
-SHLIB_SRCS := platform/lib/sharpvox.cpp
+SHLIB_SRCS := platform/lib/SharpVox.cpp
 SHLIB_OBJS := $(SHLIB_SRCS:.cpp=.o)
 
 # Output targets
@@ -39,13 +39,13 @@ CLI_BIN  := sharpvox
 SHLIB    := libsharpvox.so
 ARCHIVE  := libsharpvox.a
 
-TEST_SRCS := tests/dump_stages.cpp
+TEST_SRCS := tests/DumpStages.cpp
 TEST_BIN  := tests/dump_stages
 
 # WASM sources (same engine + speaker + wasm interop)
 WASM_SRCS := $(LIB_SRCS) \
-    platform/lib/sharpvox.cpp \
-    platform/wasm/sharpvox_wasm.cpp
+    platform/lib/SharpVox.cpp \
+    platform/wasm/SharpVoxWasm.cpp
 
 WASM_OUT  := platform/wasm/wwwroot/js/sharpvox.js
 

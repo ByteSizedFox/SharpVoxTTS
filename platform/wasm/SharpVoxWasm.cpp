@@ -8,8 +8,8 @@
 #include <vector>
 #include <stdexcept>
 
-#include "../../platform/lib/sharpvox.h"
-#include "../../include/audio_processor.h"
+#include "../../platform/lib/SharpVox.h"
+#include "../../include/AudioProcessor.h"
 
 using namespace SharpVox;
 using namespace emscripten;

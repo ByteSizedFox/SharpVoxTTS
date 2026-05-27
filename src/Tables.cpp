@@ -1,4 +1,4 @@
-#include "tables.h"
+#include "Tables.h"
 
 namespace SharpVox {
 

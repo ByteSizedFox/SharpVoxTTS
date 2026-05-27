@@ -1,4 +1,4 @@
-#include "lexicon_reader.h"
+#include "LexiconReader.h"
 
 #include <cstdint>
 #include <string>
