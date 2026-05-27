@@ -208,33 +208,38 @@ public:
         try {
             prepareEngine();
             _speaker.KlattschMode = false;
-            int32_t totalSamples = 0;
-            double playAt = 0.0;
+
+            struct Ctx { SharpVoxInterop* self; int32_t totalSamples; double playAt; };
+            Ctx ctx { this, 0, 0.0 };
+
             _speaker.SpeakWithEvents(buildSynText(text),
-                [&](const int16_t* buf, int32_t len) {
-                    if (std::fabs(_outputVolume - 1.0f) > 0.001f) {
+                [](const int16_t* buf, int32_t len, void* ud) {
+                    auto* c = static_cast<Ctx*>(ud);
+                    if (std::fabs(c->self->_outputVolume - 1.0f) > 0.001f) {
                         std::vector<int16_t> chunk(buf, buf + len);
-                        applyVolume(chunk, _outputVolume);
-                        js_play_pcm(chunk.data(), len, _sampleRate);
+                        applyVolume(chunk, c->self->_outputVolume);
+                        js_play_pcm(chunk.data(), len, c->self->_sampleRate);
                     } else {
-                        js_play_pcm(buf, len, _sampleRate);
+                        js_play_pcm(buf, len, c->self->_sampleRate);
                     }
-                    totalSamples += len;
+                    c->totalSamples += len;
                 },
-                [&](const std::vector<PhonemeEvent>& events) {
-                    buildPhonemeJson(events);
-                    js_init_audio(_sampleRate);
-                    playAt = js_reserve_start_time(_sampleRate);
-                    js_update_phonemes(_codesJson.c_str(), -1);
-                });
+                [](const PhonemeEvent* events, int32_t count, void* ud) {
+                    auto* c = static_cast<Ctx*>(ud);
+                    c->self->buildPhonemeJson(events, count);
+                    js_init_audio(c->self->_sampleRate);
+                    c->playAt = js_reserve_start_time(c->self->_sampleRate);
+                    js_update_phonemes(c->self->_codesJson.c_str(), -1);
+                },
+                &ctx);
 
             char status[128];
-            int ms = _sampleRate > 0 ? (int)((int64_t)totalSamples * 1000 / _sampleRate) : 0;
-            std::snprintf(status, sizeof(status), "ready — %d ms, %d phonemes", ms, (int)_phonCodes.size());
+            int ms = _sampleRate > 0 ? (int)((int64_t)ctx.totalSamples * 1000 / _sampleRate) : 0;
+            std::snprintf(status, sizeof(status), "ready - %d ms, %d phonemes", ms, (int)_phonCodes.size());
             js_update_status(status);
 
             if (!_phonCodes.empty()) {
-                js_start_phoneme_tracking(_codesJson.c_str(), _timesJson.c_str(), playAt);
+                js_start_phoneme_tracking(_codesJson.c_str(), _timesJson.c_str(), ctx.playAt);
             }
         } catch (const std::exception& e) {
             std::string err = std::string("error: ") + e.what();
@@ -251,16 +256,19 @@ public:
                 (double)_speaker.KlBaseF0, (double)_speaker.KlRate, code.c_str());
             prepareEngine();
             _speaker.KlattschMode = false;
+            struct AudCtx { SharpVoxInterop* self; };
+            AudCtx audCtx { this };
             js_init_audio(_sampleRate);
-            _speaker.Speak(buf, [&](const int16_t* chunk, int32_t len) {
-                if (std::fabs(_outputVolume - 1.0f) > 0.001f) {
+            _speaker.Speak(buf, [](const int16_t* chunk, int32_t len, void* ud) {
+                auto* c = static_cast<AudCtx*>(ud);
+                if (std::fabs(c->self->_outputVolume - 1.0f) > 0.001f) {
                     std::vector<int16_t> tmp(chunk, chunk + len);
-                    applyVolume(tmp, _outputVolume);
-                    js_play_pcm(tmp.data(), len, _sampleRate);
+                    applyVolume(tmp, c->self->_outputVolume);
+                    js_play_pcm(tmp.data(), len, c->self->_sampleRate);
                 } else {
-                    js_play_pcm(chunk, len, _sampleRate);
+                    js_play_pcm(chunk, len, c->self->_sampleRate);
                 }
-            });
+            }, &audCtx);
         } catch (...) {}
     }
 
@@ -276,9 +284,10 @@ public:
             prepareEngine();
             _speaker.KlattschMode = false;
             std::vector<int16_t> samples;
-            _speaker.Speak(buildSynText(text), [&](const int16_t* buf, int32_t len) {
-                samples.insert(samples.end(), buf, buf + len);
-            });
+            _speaker.Speak(buildSynText(text), [](const int16_t* buf, int32_t len, void* ud) {
+                auto* s = static_cast<std::vector<int16_t>*>(ud);
+                s->insert(s->end(), buf, buf + len);
+            }, &samples);
             applyVolume(samples, _outputVolume);
             auto wav = buildWav(samples, _sampleRate);
             js_download_bytes(wav.data(), (int)wav.size(), "speech.wav", "audio/wav");
@@ -449,13 +458,14 @@ private:
         return std::string("[:klattsch on] ") + buf + " " + text + " [:klattsch off]";
     }
 
-    void buildPhonemeJson(const std::vector<PhonemeEvent>& events) {
+    void buildPhonemeJson(const PhonemeEvent* events, int32_t count) {
         _phonCodes.clear();
         _codesJson = "[";
         _timesJson = "[";
         bool first = true;
 
-        for (const auto& e : events) {
+        for (int32_t i = 0; i < count; i++) {
+            const auto& e = events[i];
             if (e.Phoneme == AudioProcessor::_SIL_) continue;
             const char* name = phonemeName(e.Phoneme);
             if (!name) continue;

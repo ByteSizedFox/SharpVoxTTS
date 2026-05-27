@@ -114,7 +114,11 @@ namespace SharpVox {
     }
 
     void TtsEngine::Speak(const std::string& text,
-                          std::function<void(const int16_t*, int32_t)> onBuffer) {
+                          void (*onBuffer)(const int16_t*, int32_t, void*),
+                          void* userdata) {
+        auto cb = [onBuffer, userdata](const int16_t* buf, int32_t len) {
+            onBuffer(buf, len, userdata);
+        };
         EmbeddedCmd::KlattschMode = false;
         for (const auto& seg : EmbeddedCmd::ParseSegments(text)) {
             if (seg.IsCommand()) {
@@ -124,16 +128,16 @@ namespace SharpVox {
             if (seg.IsKlattsch()) {
                 auto tokens = KlattschParser::CompileToTokens(KlattschParser::Tokenize(seg.klattschText));
                 if (!tokens.empty()) {
-                    ProcessSentenceStreaming(tokens, 0, onBuffer);
+                    ProcessSentenceStreaming(tokens, 0, cb);
                 }
                 continue;
             }
             if (seg.IsSinging()) {
-                ProcessSentenceStreaming(seg.singing, 0, onBuffer);
+                ProcessSentenceStreaming(seg.singing, 0, cb);
                 continue;
             }
             for (auto& [tokens, endPunct] : _fe.TextToSentenceTokens(seg.plainText)) {
-                ProcessSentenceStreaming(tokens, endPunct, onBuffer);
+                ProcessSentenceStreaming(tokens, endPunct, cb);
             }
         }
     }
@@ -169,8 +173,12 @@ namespace SharpVox {
 
     void TtsEngine::SpeakWithEvents(
         const std::string& text,
-        std::function<void(const int16_t*, int32_t)> onBuffer,
-        std::function<void(const std::vector<PhonemeEvent>&)> onEventsReady) {
+        void (*onBuffer)(const int16_t*, int32_t, void*),
+        void (*onEventsReady)(const PhonemeEvent*, int32_t, void*),
+        void* userdata) {
+        auto cb = [onBuffer, userdata](const int16_t* buf, int32_t len) {
+            onBuffer(buf, len, userdata);
+        };
 
         std::vector<PhonemeEvent> events;
         std::vector<SynthInputDump> workItems;
@@ -239,10 +247,10 @@ namespace SharpVox {
             }
         }
 
-        onEventsReady(events);
+        onEventsReady(events.data(), (int32_t)events.size(), userdata);
 
         for (const auto& dump : workItems) {
-            ProcessSentenceStreamingFromDump(dump, onBuffer);
+            ProcessSentenceStreamingFromDump(dump, cb);
         }
     }
 

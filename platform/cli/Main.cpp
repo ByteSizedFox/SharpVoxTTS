@@ -341,11 +341,14 @@ int main(int argc, char* argv[]) {
 
     try {
         WavStreamWriter writer(outputPath, sampleRate);
+        struct Ctx { WavStreamWriter* writer; int32_t* total; };
         int32_t totalSamples = 0;
-        engine->Speak(text, [&](const int16_t* chunk, int32_t chunkLen) {
-            writer.Write(chunk, chunkLen);
-            totalSamples += chunkLen;
-        });
+        Ctx ctx { &writer, &totalSamples };
+        engine->Speak(text, [](const int16_t* chunk, int32_t chunkLen, void* ud) {
+            auto* c = static_cast<Ctx*>(ud);
+            c->writer->Write(chunk, chunkLen);
+            *c->total += chunkLen;
+        }, &ctx);
         std::cout << "Generated " << outputPath
                   << " (" << std::fixed;
         std::cout.precision(2);

@@ -21,10 +21,12 @@ public:
     bool IsSpeaking() const { return _isSpeaking; }
 
     void Speak(const std::string& text,
-               std::function<void(const int16_t*, int32_t)> onBuffer);
+               void (*onBuffer)(const int16_t* buf, int32_t len, void* userdata),
+               void* userdata = nullptr);
     void SpeakWithEvents(const std::string& text,
-                         std::function<void(const int16_t*, int32_t)> onBuffer,
-                         std::function<void(const std::vector<PhonemeEvent>&)> onEventsReady);
+                         void (*onBuffer)(const int16_t* buf, int32_t len, void* userdata),
+                         void (*onEventsReady)(const PhonemeEvent* events, int32_t count, void* userdata),
+                         void* userdata = nullptr);
 
     // Polls pending phoneme events up to absoluteSeconds and fires OnPhoneme for each
     void PollAbsolute(float absoluteSeconds);
@@ -289,6 +291,10 @@ private:
 
     // yep, make a new one
     VoiceData BuildVoice();
+
+    struct SpeakEventsCtx;
+    static void SpeakBufAdapter(const int16_t* buf, int32_t len, void* ud);
+    static void SpeakEventsAdapter(const PhonemeEvent* events, int32_t count, void* ud);
 };
 
 }  // namespace SharpVox

@@ -16,13 +16,15 @@ static void write_wav_streaming(const char* path, SharpVoxSpeaker& speaker, cons
     w32(sr); w32(sr * 2); w16(2); w16(16);
     fwrite("data", 4, 1, f); w32(0);
 
-    int total = 0;
-    speaker.Speak(text, [&](const short* buf, int len) {
-        fwrite(buf, 2, len, f);
-        total += len;
-    });
+    struct WavCtx { FILE* f; int total; };
+    WavCtx ctx { f, 0 };
+    speaker.Speak(text, [](const short* buf, int len, void* ud) {
+        auto* c = static_cast<WavCtx*>(ud);
+        fwrite(buf, 2, len, c->f);
+        c->total += len;
+    }, &ctx);
 
-    int data = total * 2;
+    int data = ctx.total * 2;
     fseek(f, 4,  SEEK_SET); w32(36 + data);
     fseek(f, 40, SEEK_SET); w32(data);
     fclose(f);
@@ -32,14 +34,16 @@ static void speak_with_phonemes(SharpVoxSpeaker& speaker, const char* text) {
     std::vector<short> samples;
 
     speaker.SpeakWithEvents(text,
-        [&](const short* buf, int len) {
-            samples.insert(samples.end(), buf, buf + len);
+        [](const short* buf, int len, void* ud) {
+            auto* s = static_cast<std::vector<short>*>(ud);
+            s->insert(s->end(), buf, buf + len);
         },
-        [](const std::vector<PhonemeEvent>& events) {
-            for (const auto& e : events) {
-                printf("  phoneme %d at %.3fs\n", e.Phoneme, e.TimeSeconds);
+        [](const PhonemeEvent* events, int32_t count, void* /*ud*/) {
+            for (int32_t i = 0; i < count; i++) {
+                printf("  phoneme %d at %.3fs\n", events[i].Phoneme, events[i].TimeSeconds);
             }
-        });
+        },
+        &samples);
 
     printf("total samples: %d\n", (int)samples.size());
 }

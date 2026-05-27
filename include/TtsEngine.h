@@ -88,12 +88,14 @@ namespace SharpVox {
         std::vector<PitchFrameRecord> DumpPitchFrames(const std::string& text);
 
         void Speak(const std::string& text,
-                   std::function<void(const int16_t*, int32_t)> onBuffer);
+                   void (*onBuffer)(const int16_t* buf, int32_t len, void* userdata),
+                   void* userdata = nullptr);
 
         void SpeakWithEvents(
             const std::string& text,
-            std::function<void(const int16_t*, int32_t)> onBuffer,
-            std::function<void(const std::vector<PhonemeEvent>&)> onEventsReady);
+            void (*onBuffer)(const int16_t* buf, int32_t len, void* userdata),
+            void (*onEventsReady)(const PhonemeEvent* events, int32_t count, void* userdata),
+            void* userdata = nullptr);
 
     private:
         Phonemizer _fe;
