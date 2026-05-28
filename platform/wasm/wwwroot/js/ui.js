@@ -618,26 +618,47 @@ window.ui = {
 };
 
 (function () {
-    function b64enc(str) {
-        const bytes = new TextEncoder().encode(str);
-        let bin = '';
-        for (const b of bytes) bin += String.fromCharCode(b);
-        return btoa(bin);
+    async function compress(str) {
+        const src = new TextEncoder().encode(str);
+        const cs = new CompressionStream('deflate-raw');
+        const w = cs.writable.getWriter(); w.write(src); w.close();
+        const chunks = []; const r = cs.readable.getReader();
+        for (;;) { const { done, value } = await r.read(); if (done) break; chunks.push(value); }
+        const buf = new Uint8Array(chunks.reduce((n, c) => n + c.length, 0));
+        let i = 0; for (const c of chunks) { buf.set(c, i); i += c.length; }
+        return buf;
     }
-    function b64dec(b64) {
-        const bin = atob(b64);
-        const bytes = new Uint8Array(bin.length);
-        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-        return new TextDecoder().decode(bytes);
+
+    async function decompress(bytes) {
+        const ds = new DecompressionStream('deflate-raw');
+        const w = ds.writable.getWriter(); w.write(bytes); w.close();
+        const chunks = []; const r = ds.readable.getReader();
+        for (;;) { const { done, value } = await r.read(); if (done) break; chunks.push(value); }
+        const buf = new Uint8Array(chunks.reduce((n, c) => n + c.length, 0));
+        let i = 0; for (const c of chunks) { buf.set(c, i); i += c.length; }
+        return new TextDecoder().decode(buf);
+    }
+
+    function toB64url(bytes) {
+        let bin = ''; for (const b of bytes) bin += String.fromCharCode(b);
+        return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+    }
+
+    function fromB64url(s) {
+        s = s.replace(/-/g, '+').replace(/_/g, '/');
+        const bin = atob(s + '='.repeat((4 - s.length % 4) % 4));
+        const out = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+        return out;
     }
 
     const MODES = new Set(['tts', 'klattsch', 'tools']);
 
-    window.ui.copyLink = () => {
+    window.ui.copyLink = async () => {
         const mode = document.querySelector('.tab-btn.active')?.id.replace('tab-', '') || 'tts';
         if (mode === 'tools') { window.ui.updateStatus('sharing not available in tools mode'); return; }
         const text = document.getElementById('inputText').value;
-        const hash = text ? `#${mode}:${b64enc(text)}` : `#${mode}`;
+        const hash = text ? `#${mode}:${toB64url(await compress(text))}` : `#${mode}`;
         const url = location.origin + location.pathname + hash;
         navigator.clipboard?.writeText(url).then(
             () => window.ui.updateStatus('link copied to clipboard'),
@@ -645,14 +666,16 @@ window.ui = {
         );
     };
 
-    const fromHash = () => {
+    const fromHash = async () => {
         const raw = location.hash.slice(1);
         const ci = raw.indexOf(':');
         const mode = ci >= 0 ? raw.slice(0, ci) : raw;
         const encoded = ci >= 0 ? raw.slice(ci + 1) : '';
         if (!MODES.has(mode)) return;
         window.ui.setMode(mode);
-        if (encoded) try { document.getElementById('inputText').value = b64dec(encoded); } catch (_) {}
+        if (encoded) try {
+            document.getElementById('inputText').value = await decompress(fromB64url(encoded));
+        } catch (_) {}
     };
 
     window.addEventListener('hashchange', fromHash);
