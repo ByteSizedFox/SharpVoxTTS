@@ -139,16 +139,11 @@ window.ui = {
             bank = compat ? "auto" : null;
         }
 
-        const resultJson = await window.sharpVox?.ConvertUst(text, language, offset, bank);
-        if (resultJson) {
-            const result = JSON.parse(resultJson);
-            document.getElementById('inputText').value = result.klattsch;
-            document.getElementById('ustDiagnostics').innerText = result.diagnostics;
-            window.ui.updateStatus("conversion complete — klattsch ready");
-            window.ui.setMode('klattsch');
-        } else {
-            window.ui.updateStatus("conversion failed");
-        }
+        const result = window.UstConverter.convert(text, language, offset, bank);
+        document.getElementById('inputText').value = result.klattsch;
+        document.getElementById('ustDiagnostics').innerText = result.diagnostics;
+        window.ui.updateStatus("conversion complete — klattsch ready");
+        window.ui.setMode('klattsch');
     },
 
     onPresetChange: async (val) => {

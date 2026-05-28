@@ -3,7 +3,6 @@ import './AudioPlayer.js';
 const worker = new Worker(new URL('./worker.js', import.meta.url), { type: 'module' });
 
 let _pendingPlayAt = null;
-let _convertUstResolve = null;
 
 worker.onmessage = ({ data }) => {
     switch (data.type) {
@@ -56,12 +55,6 @@ worker.onmessage = ({ data }) => {
                 data.duration, data.sourceText,
                 data.lipsyncTimesJson, data.lipsyncV1Json, data.lipsyncV2Json);
             break;
-        case 'convertUstResult':
-            if (_convertUstResolve) {
-                _convertUstResolve(data.json);
-                _convertUstResolve = null;
-            }
-            break;
     }
 };
 
@@ -76,8 +69,4 @@ window.sharpVox = {
     DownloadWav:     (text)                        => worker.postMessage({ type: 'DownloadWav', text }),
     AuditionPhoneme: (code)                        => worker.postMessage({ type: 'AuditionPhoneme', code }),
     ExportVideo:     (text)                        => worker.postMessage({ type: 'ExportVideo', text }),
-    ConvertUst:      (text, language, offset, bank) => new Promise(resolve => {
-        _convertUstResolve = resolve;
-        worker.postMessage({ type: 'ConvertUst', text, language, offset: offset || 0, bank: bank || '' });
-    }),
 };

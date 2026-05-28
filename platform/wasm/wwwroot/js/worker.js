@@ -40,10 +40,5 @@ self.onmessage = ({ data }) => {
         case 'ExportVideo':
             instance.ExportVideo(data.text);
             break;
-        case 'ConvertUst': {
-            const result = instance.ConvertUst(data.text, data.language, data.offset, data.bank);
-            self.postMessage({ type: 'convertUstResult', json: result });
-            break;
-        }
     }
 };
