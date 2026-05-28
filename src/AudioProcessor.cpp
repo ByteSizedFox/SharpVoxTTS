@@ -335,6 +335,149 @@ namespace SharpVox {
         );
     }
 
+    // -------------------------------------------------------------------------
+    // ProcessSinging — zero-large-buffer path for singing segments.
+    //
+    // All tokens in a singing segment carry explicit timing (UserDur for the
+    // note vowel) and pitch (UserNote), so the entire allophone, duration, and
+    // pitch-contour pipeline can be bypassed.  The dump is built directly from
+    // the token list, using the same slot layout as the full Process() path:
+    //   slot 0          : initial SIL (1 frame, from ClearBuffers / LoadPhonemes)
+    //   slots 1..n      : one entry per input token
+    //   slot n+1        : lookahead SIL sentinel (for SpeechRenderer GP(index+1))
+    //
+    // Duration mirrors ModDuration's kSingingPhon branch exactly.
+    // The pitch buffer is left empty; PitchInterpolator's singing branch uses
+    // only _portamentoAccum and UserNote, never the Tilt event queue.
+    // -------------------------------------------------------------------------
+    SynthInputDump AudioProcessor::ProcessSinging(const std::vector<PhonemeToken>& tokens) {
+        const int32_t n       = (int32_t)tokens.size();
+        const int32_t count   = n + 1;        // real slots (slot 0 = initial SIL)
+        const int32_t vecSize = count + 1;    // +1 lookahead SIL sentinel
+
+        std::vector<int16_t>  phonBuf2(vecSize,     _SIL_);
+        std::vector<int64_t>  controls(vecSize,     0);
+        std::vector<int16_t>  durBuf(vecSize,        0);
+        std::vector<int16_t>  userPitchBuf2(vecSize, 0);
+        std::vector<int16_t>  userNoteBuf2(vecSize,  0);
+        std::vector<uint8_t>  aspirationBuf2(vecSize, 0);
+        std::vector<uint8_t>  tiltBuf2(vecSize,       0);
+        std::vector<uint8_t>  effortBuf2(vecSize,     0);
+        std::vector<uint8_t>  vibDepthBuf2(vecSize,   0);
+        std::vector<uint8_t>  vibRateBuf2(vecSize,    0);
+        std::vector<uint8_t>  tremDepthBuf2(vecSize,  0);
+        std::vector<uint8_t>  tremRateBuf2(vecSize,   0);
+
+        // Slot 0: initial SIL, always 1 frame (matches ModDuration line: _durBuf[0] = 1).
+        durBuf[0] = 1;
+
+        for (int32_t i = 0; i < n; i++) {
+            const PhonemeToken& tok = tokens[i];
+            const int32_t slot      = i + 1;
+
+            phonBuf2[slot]       = tok.Phon;
+            controls[slot]       = tok.Ctrl;
+            userPitchBuf2[slot]  = tok.UserPitch;
+            userNoteBuf2[slot]   = tok.UserNote;
+            aspirationBuf2[slot] = tok.Aspiration;
+            tiltBuf2[slot]       = tok.Tilt;
+            effortBuf2[slot]     = tok.Effort;
+            vibDepthBuf2[slot]   = tok.VibDepth;
+            vibRateBuf2[slot]    = tok.VibRate;
+            tremDepthBuf2[slot]  = tok.TremDepth;
+            tremRateBuf2[slot]   = tok.TremRate;
+
+            // Duration mirrors ModDuration's kSingingPhon branch.
+            // LoadPhonemes normalises UserDur=0 to kDur_One before passing to
+            // ModDuration, so we do the same here.
+            const int16_t userDur = tok.UserDur == 0 ? (int16_t)kDur_One : tok.UserDur;
+            int32_t dd;
+
+            if ((tok.Ctrl & kSingingPhon) != 0) {
+                if (tok.Phon == _SIL_ && (tok.Ctrl & kSingingDuration) == 0) {
+                    // SIL from unrecognised phoneme letter inside a note group.
+                    dd = 1;
+                } else if ((tok.Ctrl & kSingingDuration) != 0) {
+                    // Note-timed vowel: use the explicit duration directly (ms → frames).
+                    dd = userDur / kFrameTime;
+                    if (dd < 1) { dd = 1; }
+                } else {
+                    // Consonant bracketing a note vowel: minimum duration.
+                    dd = Tables::GetMinimumDuration(tok.Phon) / kFrameTime;
+                    if (dd < 1) { dd = 1; }
+                }
+            } else if (tok.Phon == _SIL_) {
+                // Non-kSingingPhon SIL (e.g. rest with pitch=0):
+                // if kSingingDuration is set, honour the explicit millisecond count;
+                // otherwise treat it as a 1-frame gap.
+                if ((tok.Ctrl & kSingingDuration) != 0) {
+                    dd = userDur / kFrameTime;
+                    if (dd < 1) { dd = 1; }
+                } else {
+                    dd = 1;
+                }
+            } else {
+                // Non-kSingingPhon consonant in singing context: minimum duration.
+                dd = Tables::GetMinimumDuration(tok.Phon) / kFrameTime;
+                if (dd < 1) { dd = 1; }
+            }
+            durBuf[slot] = (int16_t)dd;
+        }
+        // Slots [count] and beyond stay SIL / 0 (already initialised).
+
+        // PitchState for singing: portamento seeded at the voice's natural pitch.
+        // The Tilt baseline fields are set for consistency even though the singing
+        // branch of PitchInterpolator doesn't use them.
+        PitchState pitch{};
+        pitch.PhonIndexTarg      = -1;
+        pitch.PhonIndexCp        = -1;
+        pitch.PitchBoundry       = (int16_t)kNeverHappens;
+        pitch.BaselineFallStart  = (int16_t)(kHZ_7 + _vpBaselineFall);
+        pitch.BaselineFallEnd    = (int16_t)(kHZ_7 - _vpBaselineFall);
+        pitch.BaselineStartOffset = (int16_t)(kHZ_7 + _vpBaselineFall);
+        pitch.BaselineEndOffset   = (int16_t)(kHZ_7 - _vpBaselineFall);
+        pitch.VpIntonation        = _vpIntonation;
+        pitch.VpPitchRange        = _vpPitchRange;
+        pitch.VpBaselinePitch     = _voiceNaturalPitch;
+        pitch.VibratoDepth1       = _vibratoDepth1;
+        pitch.VibratoDepth2       = _vibratoDepth2;
+        pitch.VibratoFreq         = _vibratoFreq;
+        pitch.Singing             = 1;
+        pitch.NewSentence         = 1;
+        pitch.SpeechRate          = _speechRate;
+        std::fill(pitch.RampSteps.begin(), pitch.RampSteps.end(), (int64_t)0);
+
+        // Pitch buffer: empty — PitchInterpolator's singing branch uses only
+        // UserNote / portamento state and never reads Tilt events.
+        // Pass a one-entry sentinel vector so the PitchBufTime[index] access
+        // inside the collect-loop remains in bounds even if PitchBufInIndex were
+        // erroneously non-zero.
+        std::vector<int16_t> pitchSentinel(1, 0);
+
+        return SynthInputDump::Create(
+            /*phonBuf2InIndex=*/ count,
+            /*phonBuf2=*/        std::move(phonBuf2),
+            /*controls=*/        std::move(controls),
+            /*durBuf=*/          std::move(durBuf),
+            /*userPitchBuf2=*/   std::move(userPitchBuf2),
+            /*userNoteBuf2=*/    std::move(userNoteBuf2),
+            /*aspirationBuf2=*/  std::move(aspirationBuf2),
+            /*tiltBuf2=*/        std::move(tiltBuf2),
+            /*effortBuf2=*/      std::move(effortBuf2),
+            /*vibDepthBuf2=*/    std::move(vibDepthBuf2),
+            /*vibRateBuf2=*/     std::move(vibRateBuf2),
+            /*tremDepthBuf2=*/   std::move(tremDepthBuf2),
+            /*tremRateBuf2=*/    std::move(tremRateBuf2),
+            /*pitchBufInIndex=*/ 0,
+            /*pitchBufFreq=*/    pitchSentinel,
+            /*pitchBufTime=*/    pitchSentinel,
+            /*pitchBufFlags=*/   pitchSentinel,
+            /*pitchBufTiltX64=*/ pitchSentinel,
+            /*pitchBufDuration=*/std::move(pitchSentinel),
+            /*pitch=*/           pitch
+        );
+    }
+
     // Inline helpers
 
     int16_t AudioProcessor::GetPhon2(int32_t i) {
@@ -713,10 +856,13 @@ namespace SharpVox {
             bool     delFwd     = false;
             bool     insertGlot = false;
 
-            // Skip all phoneme-merge coarticulation rules for explicit singing/klattsch tokens.
-            // These modes give the user direct phoneme control; merges would override intended
-            // pitch boundaries and durations.
+            // Skip all allophone transformation rules for explicit singing/klattsch tokens.
+            // These modes give the user direct phoneme control; any substitution would
+            // override intended phoneme identity, pitch boundaries, and durations.
             bool isSinging = (curCtrl & kSingingPhon) != 0 || (prevCtrl & kSingingPhon) != 0;
+            if (isSinging) {
+                goto STUFF_BUFF;
+            }
 
             // EN rule: IX+N -> EN (syllabic N). "button" IX N -> EN, collapses the
             // schwa into the syllabic nasal. Not applied when the stop before IX is B or G,

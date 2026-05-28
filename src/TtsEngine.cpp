@@ -72,7 +72,25 @@ namespace SharpVox {
             if (seg.IsKlattsch()) {
                 tokens = KlattschParser::CompileToTokens(KlattschParser::Tokenize(seg.klattschText));
             } else if (seg.IsSinging()) {
-                tokens = seg.singing;
+                auto dump = _be.ProcessSinging(seg.singing);
+                PitchInterpolator pi(dump);
+                int32_t phonIdx2 = 0, frameInPhon2 = 0;
+                int32_t totalFrames2 = 0;
+                for (int32_t i = 0; i < dump.PhonBuf2InIndex; i++) {
+                    totalFrames2 += dump.DurBuf[i];
+                }
+                for (int32_t f = 0; f < totalFrames2; f++) {
+                    if (frameInPhon2 == 0) { pi.DoNote(phonIdx2); }
+                    pi.Step();
+                    int16_t p2 = dump.PhonBuf2[phonIdx2];
+                    const char* namePtr2 = AudioProcessor::PhonemeNamesTable[p2];
+                    records.emplace_back(namePtr2 ? std::string(namePtr2) : std::string("?"),
+                        frameInPhon2, pi.DbgF0(), pi.DbgTiltExcursion(), pi.DbgTiltSmooth(),
+                        pi.DbgTiltHeld(), pi.DbgTiltPhase(), pi.DbgBaselineOffset(), pi.DbgTotalOffset());
+                    frameInPhon2++;
+                    if (frameInPhon2 >= dump.DurBuf[phonIdx2]) { phonIdx2++; frameInPhon2 = 0; }
+                }
+                continue;
             } else {
                 // Just take the first sentence for now if multi-sentence
                 for (auto& p : _fe.TextToSentenceTokens(seg.plainText)) {
@@ -136,7 +154,8 @@ namespace SharpVox {
                 continue;
             }
             if (seg.IsSinging()) {
-                ProcessSentenceStreaming(seg.singing, 0, cb);
+                auto dump = _be.ProcessSinging(seg.singing);
+                ProcessSentenceStreamingFromDump(dump, cb);
                 continue;
             }
             for (auto& p : _fe.TextToSentenceTokens(seg.plainText)) {
@@ -211,12 +230,12 @@ namespace SharpVox {
                     frameOff += dump.DurBuf[i];
                 }
                 sampleOffset += frameOff * _synth.SampFrameLen;
-                workItems.push_back(dump);
+                workItems.push_back(std::move(dump));
                 continue;
             }
 
             if (seg.IsSinging()) {
-                auto dump = _be.Process(seg.singing, 0);
+                auto dump = _be.ProcessSinging(seg.singing);
                 int32_t frameOff = 0;
                 for (int32_t i = 0; i < dump.PhonBuf2InIndex; i++) {
                     int16_t phon = dump.PhonBuf2[i];
@@ -228,7 +247,7 @@ namespace SharpVox {
                     frameOff += dump.DurBuf[i];
                 }
                 sampleOffset += frameOff * _synth.SampFrameLen;
-                workItems.push_back(dump);
+                workItems.push_back(std::move(dump));
                 continue;
             }
 
@@ -248,7 +267,7 @@ namespace SharpVox {
                     frameOff += dump.DurBuf[i];
                 }
                 sampleOffset += frameOff * _synth.SampFrameLen;
-                workItems.push_back(dump);
+                workItems.push_back(std::move(dump));
             }
         }
 

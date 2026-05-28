@@ -142,10 +142,15 @@ namespace SharpVox {
         // Constructor
         explicit AudioProcessor(const VoiceData& voice);
 
-        // Public entry point.
-        // Runs the full pipeline and returns a SynthInputDump ready for SpeechRenderer.
+        // Full pipeline: text phonemes → SynthInputDump.
         SynthInputDump Process(const std::vector<PhonemeToken>& tokens,
                                int16_t endPunctuation = _Period_);
+
+        // Streaming path for singing segments.
+        // Bypasses all large working buffers — builds the SynthInputDump directly
+        // from the token list in O(n) time and O(n) memory.  All tokens are expected
+        // to carry kSingingPhon; unrecognised SIL tokens are handled gracefully.
+        SynthInputDump ProcessSinging(const std::vector<PhonemeToken>& tokens);
 
     private:
         // Private implementation constants
