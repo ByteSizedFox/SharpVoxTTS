@@ -79,7 +79,8 @@ window.ui = {
         const klattsch = mode === 'klattsch';
         const tools = mode === 'tools';
         const tts = mode === 'tts';
-        if (location.hash.slice(1) !== mode) location.hash = mode;
+        const currentMode = location.hash.slice(1).split(':')[0];
+        if (currentMode !== mode) location.hash = mode;
 
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
         document.getElementById('tab-' + mode).classList.add('active');
@@ -617,8 +618,43 @@ window.ui = {
 };
 
 (function () {
+    function b64enc(str) {
+        const bytes = new TextEncoder().encode(str);
+        let bin = '';
+        for (const b of bytes) bin += String.fromCharCode(b);
+        return btoa(bin);
+    }
+    function b64dec(b64) {
+        const bin = atob(b64);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        return new TextDecoder().decode(bytes);
+    }
+
     const MODES = new Set(['tts', 'klattsch', 'tools']);
-    const fromHash = () => { const m = location.hash.slice(1); if (MODES.has(m)) window.ui.setMode(m); };
+
+    window.ui.copyLink = () => {
+        const mode = document.querySelector('.tab-btn.active')?.id.replace('tab-', '') || 'tts';
+        if (mode === 'tools') { window.ui.updateStatus('sharing not available in tools mode'); return; }
+        const text = document.getElementById('inputText').value;
+        const hash = text ? `#${mode}:${b64enc(text)}` : `#${mode}`;
+        const url = location.origin + location.pathname + hash;
+        navigator.clipboard?.writeText(url).then(
+            () => window.ui.updateStatus('link copied to clipboard'),
+            () => { location.hash = hash; window.ui.updateStatus('link ready in address bar'); }
+        );
+    };
+
+    const fromHash = () => {
+        const raw = location.hash.slice(1);
+        const ci = raw.indexOf(':');
+        const mode = ci >= 0 ? raw.slice(0, ci) : raw;
+        const encoded = ci >= 0 ? raw.slice(ci + 1) : '';
+        if (!MODES.has(mode)) return;
+        window.ui.setMode(mode);
+        if (encoded) try { document.getElementById('inputText').value = b64dec(encoded); } catch (_) {}
+    };
+
     window.addEventListener('hashchange', fromHash);
     fromHash();
 }());
