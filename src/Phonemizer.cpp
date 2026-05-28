@@ -6,7 +6,6 @@
 #include "../include/HeteronymResolver.h"
 #include "../include/LibraryData.h"
 #include "../include/TextCommands.h"
-#include <regex>
 #include <sstream>
 #include <algorithm>
 #include <cctype>
@@ -911,6 +910,135 @@ namespace SharpVox {
         return result;
     }
 
+    // -------------------------------------------------------------------------
+    // Regex-free helpers (replaces std::regex usage throughout this file)
+    // -------------------------------------------------------------------------
+
+    // Fixed-string find-and-replace in s (modifies in place).
+    static void ReplaceAll(std::string& s,
+                           const char* from, size_t fromLen,
+                           const char* to,   size_t toLen) {
+        size_t pos = 0;
+        while ((pos = s.find(from, pos, fromLen)) != std::string::npos) {
+            s.replace(pos, fromLen, to, toLen);
+            pos += toLen;
+        }
+    }
+
+    // Replace (content) with ", content, ", consuming any trailing space before '('.
+    static std::string ReplaceParentheses(const std::string& s) {
+        std::string out;
+        out.reserve(s.size() + 4);
+        for (size_t i = 0, n = s.size(); i < n; ) {
+            if (s[i] == '(') {
+                size_t close = s.find(')', i + 1);
+                if (close != std::string::npos) {
+                    while (!out.empty() && out.back() == ' ') out.pop_back();
+                    out += ", ";
+                    out.append(s, i + 1, close - i - 1);
+                    out += ", ";
+                    i = close + 1;
+                    continue;
+                }
+            }
+            out += s[i++];
+        }
+        return out;
+    }
+
+    // Split expressive reduplication: "hahaha" → "ha ha ha".
+    // Mirrors \b([a-zA-Z]{1,3}?)\1{2,}\b — tries unit lengths 1, 2, 3 (shortest first).
+    static std::string ReplaceReduplication(const std::string& s) {
+        std::string out;
+        out.reserve(s.size());
+        for (size_t i = 0, n = s.size(); i < n; ) {
+            bool atBound = (i == 0 || !std::isalpha((unsigned char)s[i - 1]))
+                           && std::isalpha((unsigned char)s[i]);
+            if (!atBound) { out += s[i++]; continue; }
+            size_t wEnd = i;
+            while (wEnd < n && std::isalpha((unsigned char)s[wEnd])) ++wEnd;
+            size_t wLen = wEnd - i;
+            bool replaced = false;
+            for (size_t k = 1; k <= 3 && k <= wLen; ++k) {
+                if (wLen % k != 0) continue;
+                size_t reps = wLen / k;
+                if (reps < 3) continue;
+                bool match = true;
+                for (size_t r = 1; r < reps && match; ++r)
+                    if (s.compare(i, k, s, i + r * k, k) != 0) match = false;
+                if (!match) continue;
+                for (size_t r = 0; r < reps; ++r) {
+                    if (r > 0) out += ' ';
+                    out.append(s, i, k);
+                }
+                i = wEnd;
+                replaced = true;
+                break;
+            }
+            if (!replaced) { out.append(s, i, wLen); i = wEnd; }
+        }
+        return out;
+    }
+
+    // Tokenizer — replaces the three identical static std::regex TokenRe objects.
+    // Mirrors: (\d+)|([a-zA-Z]+(?:'[a-zA-Z]+)*)|([,;:])|(\.\.\.|\.| !|\?|~)|(\s+)
+    enum class TokKind : uint8_t { Digits, Word, ClausePunct, SentPunct, Space };
+    struct Token { TokKind kind; uint32_t pos; uint32_t len; };
+
+    static std::vector<Token> TokenizeText(const std::string& s) {
+        std::vector<Token> out;
+        for (size_t i = 0, n = s.size(); i < n; ) {
+            unsigned char c = (unsigned char)s[i];
+            if (std::isdigit(c)) {
+                size_t start = i;
+                while (i < n && std::isdigit((unsigned char)s[i])) ++i;
+                out.push_back({TokKind::Digits, (uint32_t)start, (uint32_t)(i - start)});
+            } else if (std::isalpha(c)) {
+                size_t start = i;
+                while (i < n && std::isalpha((unsigned char)s[i])) ++i;
+                while (i < n && s[i] == '\'' &&
+                       i + 1 < n && std::isalpha((unsigned char)s[i + 1])) {
+                    ++i;
+                    while (i < n && std::isalpha((unsigned char)s[i])) ++i;
+                }
+                out.push_back({TokKind::Word, (uint32_t)start, (uint32_t)(i - start)});
+            } else if (c == ',' || c == ';' || c == ':') {
+                out.push_back({TokKind::ClausePunct, (uint32_t)i, 1});
+                ++i;
+            } else if (c == '.' && i + 2 < n && s[i+1] == '.' && s[i+2] == '.') {
+                out.push_back({TokKind::SentPunct, (uint32_t)i, 3});
+                i += 3;
+            } else if (c == '.') {
+                out.push_back({TokKind::SentPunct, (uint32_t)i, 1});
+                ++i;
+            } else if (c == ' ' && i + 1 < n && s[i+1] == '!') {
+                out.push_back({TokKind::SentPunct, (uint32_t)i, 2}); // " !"
+                i += 2;
+            } else if (c == '?' || c == '~') {
+                out.push_back({TokKind::SentPunct, (uint32_t)i, 1});
+                ++i;
+            } else if (std::isspace(c)) {
+                size_t start = i;
+                while (i < n && std::isspace((unsigned char)s[i])) ++i;
+                out.push_back({TokKind::Space, (uint32_t)start, (uint32_t)(i - start)});
+            } else {
+                ++i;
+            }
+        }
+        return out;
+    }
+
+    // Map a SentPunct token string to a LastEndPunct value.
+    static int16_t SentPunctToEndPunct(const std::string& s, size_t pos, size_t len) {
+        if (len == 3)  return AudioProcessor::_Ellipsis_;
+        if (len == 1) {
+            char c = s[pos];
+            if (c == '?') return AudioProcessor::_Quest_;
+            if (c == '~') return AudioProcessor::_Tilde_;
+        }
+        return AudioProcessor::_Period_;
+    }
+
     std::string Phonemizer::Normalizer::Normalize(const std::string& text) {
         std::string t = text;
 
@@ -918,10 +1046,7 @@ namespace SharpVox {
         t = SplitCamelCase(t);
 
         // 10. Parentheses -> comma-separated pauses
-        {
-            static const std::regex reParentheses("\\s*\\(([^)]+)\\)");
-            t = std::regex_replace(t, reParentheses, ", $1, ");
-        }
+        t = ReplaceParentheses(t);
 
         // 1. Currency - before decimal so $3.99 isn't split at the dot
         t = ReplaceCurrency(t);
@@ -946,45 +1071,15 @@ namespace SharpVox {
         t = ReplaceAbbrevs(t);
 
         // 8. Em-dash, en-dash, double-hyphen -> sentence break; plain hyphens -> space
-        // Replace em-dash (UTF-8: \xe2\x80\x94) and en-dash (UTF-8: \xe2\x80\x93) then '--'
-        {
-            static const std::regex reEmDash("\xe2\x80\x94");
-            static const std::regex reEnDash("\xe2\x80\x93");
-            static const std::regex reDblHyph("--");
-            t = std::regex_replace(t, reEmDash,  ". ");
-            t = std::regex_replace(t, reEnDash,  ". ");
-            t = std::regex_replace(t, reDblHyph, ". ");
-        }
+        ReplaceAll(t, "\xe2\x80\x94", 3, ". ", 2); // em dash (UTF-8)
+        ReplaceAll(t, "\xe2\x80\x93", 3, ". ", 2); // en dash (UTF-8)
+        ReplaceAll(t, "--",           2, ". ", 2);
         for (char& c : t) {
             if (c == '-') { c = ' '; }
         }
 
         // 9. Expressive reduplication: "hahaha" -> "ha ha ha"
-        // Repeated-syllable words: "hahaha" -> "ha ha ha", "lolol" -> "lol ol"
-        // Fires for 3+ repetitions of a 1-3 char unit. Rare in real English at that count.
-        // Non-greedy {1,3}? so "iiiiiiiii" splits on "i" not "iii".
-        {
-            static const std::regex reReduplicate("\\b([a-zA-Z]{1,3}?)\\1{2,}\\b");
-            std::string out;
-            out.reserve(t.size());
-            std::sregex_iterator it(t.begin(), t.end(), reReduplicate);
-            std::sregex_iterator end;
-            size_t lastPos = 0;
-            for (; it != end; ++it) {
-                const std::smatch& m = *it;
-                out += t.substr(lastPos, m.position() - lastPos);
-                std::string unit = m[1].str();
-                std::string whole = m[0].str();
-                int32_t count = (int32_t)(whole.size() / unit.size());
-                for (int32_t k = 0; k < count; k++) {
-                    if (k > 0) { out += ' '; }
-                    out += unit;
-                }
-                lastPos = m.position() + m.length();
-            }
-            out += t.substr(lastPos);
-            t = out;
-        }
+        t = ReplaceReduplication(t);
 
         return t;
     }
@@ -1006,16 +1101,13 @@ namespace SharpVox {
         std::vector<std::pair<std::vector<PhonemeToken>, int16_t>> result;
         auto segments = EmbeddedCmd::ParseSegments(text);
 
-        static const std::regex TokenRe(
-            "(\\d+)|([a-zA-Z]+(?:'[a-zA-Z]+)*)|([,;:])|(\\.\\.\\.|\\.| !|\\?|~)|(\\s+)");
-
         for (const auto& seg : segments) {
             if (seg.IsCommand()) {
                 continue; // handled by TtsEngine, not FrontEnd
             }
 
             if (seg.IsSinging()) {
-                // Each singing block is its own clause  never mix with speech
+                // Each singing block is its own clause — never mix with speech
                 if (!seg.singing.empty()) {
                     result.push_back({ seg.singing, 0 });
                 }
@@ -1026,24 +1118,17 @@ namespace SharpVox {
             // Each clause gets its own BackEnd.Process call so pitch resets cleanly.
             std::string plain = Normalizer::Normalize(seg.plainText);
             size_t start = 0;
-            std::sregex_iterator it(plain.begin(), plain.end(), TokenRe);
-            std::sregex_iterator end;
-            for (; it != end; ++it) {
-                const std::smatch& m = *it;
-                bool hasPunct = m[4].matched || m[3].matched;
-                if (!hasPunct) {
-                    continue;
-                }
-                std::string sentence = plain.substr(start, m.position() + m.length() - start);
+            auto toks = TokenizeText(plain);
+            for (const auto& t : toks) {
+                if (t.kind != TokKind::SentPunct && t.kind != TokKind::ClausePunct) continue;
+                std::string sentence = plain.substr(start, (t.pos + t.len) - start);
                 auto tokens = TextSegmentToPhonemes(sentence);
                 result.push_back({ tokens, LastEndPunct });
-                start = m.position() + m.length();
+                start = t.pos + t.len;
             }
             if (start < plain.size()) {
                 std::string remaining = plain.substr(start);
-                // Trim
-                size_t trimStart = remaining.find_first_not_of(" \t\r\n");
-                if (trimStart != std::string::npos) {
+                if (remaining.find_first_not_of(" \t\r\n") != std::string::npos) {
                     auto tokens = TextSegmentToPhonemes(remaining);
                     result.push_back({ tokens, LastEndPunct });
                 }
@@ -1063,33 +1148,25 @@ namespace SharpVox {
         std::vector<PhonemeToken> tokens;
         LastEndPunct = AudioProcessor::_Period_;
 
-        static const std::regex TokenRe(
-            "(\\d+)|([a-zA-Z]+(?:'[a-zA-Z]+)*)|([,;:])|(\\.\\.\\.|\\.| !|\\?|~)|(\\s+)");
-
         std::string normalized = Normalizer::Normalize(text);
+        auto toks = TokenizeText(normalized);
 
         std::vector<std::string> ctxWords;
-        std::sregex_iterator wit(normalized.begin(), normalized.end(), TokenRe);
-        std::sregex_iterator wend;
-        for (; wit != wend; ++wit) {
-            const std::smatch& wm = *wit;
-            if (wm[2].matched) {
-                std::string w = wm[2].str();
+        for (const auto& t : toks) {
+            if (t.kind == TokKind::Word) {
+                std::string w = normalized.substr(t.pos, t.len);
                 for (char& c : w) { c = (char)std::toupper((unsigned char)c); }
                 ctxWords.push_back(w);
             }
         }
         int32_t wordIdx = 0;
 
-        std::sregex_iterator it(normalized.begin(), normalized.end(), TokenRe);
-        std::sregex_iterator end;
-        for (; it != end; ++it) {
-            const std::smatch& m = *it;
-            if (m[1].matched) {
-                int64_t n = std::stoll(m[1].str());
+        for (const auto& t : toks) {
+            if (t.kind == TokKind::Digits) {
+                int64_t n = std::stoll(normalized.substr(t.pos, t.len));
                 AppendWordTokens(tokens, NumberToPhonStream(n), true);
-            } else if (m[2].matched) {
-                std::string word = m[2].str();
+            } else if (t.kind == TokKind::Word) {
+                std::string word = normalized.substr(t.pos, t.len);
                 std::string upper = word;
                 for (char& c : upper) { c = (char)std::toupper((unsigned char)c); }
                 auto stream = HeteronymResolver::Resolve(ctxWords, wordIdx);
@@ -1105,19 +1182,14 @@ namespace SharpVox {
                     FunctionWordsTable.find(wordLower) == FunctionWordsTable.end(),
                     PronounWordsTable.find(wordLower) != PronounWordsTable.end());
                 wordIdx++;
-            } else if (m[3].matched) {
+            } else if (t.kind == TokKind::ClausePunct) {
                 PhonemeToken tok;
                 tok.Phon = AudioProcessor::_SIL_;
                 tok.Ctrl = AudioProcessor::kTerm_Bound | ((int64_t)AudioProcessor::kBND_Pause << AudioProcessor::kSilenceTypeShift);
                 tokens.push_back(tok);
                 LastEndPunct = AudioProcessor::_Comma_;
-            } else if (m[4].matched) {
-                std::string p4 = m[4].str();
-                LastEndPunct = (p4 == "...") ? AudioProcessor::_Ellipsis_
-                             : (p4 == "?")   ? AudioProcessor::_Quest_
-                             : (p4 == "!")   ? AudioProcessor::_Exclam_
-                             : (p4 == "~")   ? AudioProcessor::_Tilde_
-                             : AudioProcessor::_Period_;
+            } else if (t.kind == TokKind::SentPunct) {
+                LastEndPunct = SentPunctToEndPunct(normalized, t.pos, t.len);
             }
         }
 
@@ -1130,9 +1202,6 @@ namespace SharpVox {
 
         // Split into ordered segments (plain text spans interleaved with singing blocks)
         auto segments = EmbeddedCmd::ParseSegments(text);
-
-        static const std::regex TokenRe(
-            "(\\d+)|([a-zA-Z]+(?:'[a-zA-Z]+)*)|([,;:])|(\\.\\.\\.|\\.| !|\\?|~)|(\\s+)");
 
         for (const auto& seg : segments) {
             if (seg.IsCommand()) {
@@ -1147,30 +1216,25 @@ namespace SharpVox {
             }
 
             std::string normalized = Normalizer::Normalize(seg.plainText);
+            auto toks = TokenizeText(normalized);
 
             // Pre-extract word list for heteronym context resolution.
             std::vector<std::string> ctxWords;
-            std::sregex_iterator wit(normalized.begin(), normalized.end(), TokenRe);
-            std::sregex_iterator wend;
-            for (; wit != wend; ++wit) {
-                const std::smatch& wm = *wit;
-                if (wm[2].matched) {
-                    std::string w = wm[2].str();
+            for (const auto& t : toks) {
+                if (t.kind == TokKind::Word) {
+                    std::string w = normalized.substr(t.pos, t.len);
                     for (char& c : w) { c = (char)std::toupper((unsigned char)c); }
                     ctxWords.push_back(w);
                 }
             }
             int32_t wordIdx = 0;
 
-            std::sregex_iterator it(normalized.begin(), normalized.end(), TokenRe);
-            std::sregex_iterator end;
-            for (; it != end; ++it) {
-                const std::smatch& m = *it;
-                if (m[1].matched) {           // number
-                    int64_t n = std::stoll(m[1].str());
+            for (const auto& t : toks) {
+                if (t.kind == TokKind::Digits) {
+                    int64_t n = std::stoll(normalized.substr(t.pos, t.len));
                     AppendWordTokens(tokens, NumberToPhonStream(n), true);
-                } else if (m[2].matched) {      // word
-                    std::string word = m[2].str();
+                } else if (t.kind == TokKind::Word) {
+                    std::string word = normalized.substr(t.pos, t.len);
                     std::string wordLower = word;
                     for (char& c : wordLower) { c = (char)std::tolower((unsigned char)c); }
                     bool isContent = (FunctionWordsTable.find(wordLower) == FunctionWordsTable.end());
@@ -1183,21 +1247,15 @@ namespace SharpVox {
                     AppendWordTokens(tokens, stream, isContent,
                         PronounWordsTable.find(wordLower) != PronounWordsTable.end());
                     wordIdx++;
-                } else if (m[3].matched) {      // , ;
+                } else if (t.kind == TokKind::ClausePunct) {
                     PhonemeToken tok;
                     tok.Phon = AudioProcessor::_SIL_;
                     tok.Ctrl = AudioProcessor::kTerm_Bound | ((int64_t)AudioProcessor::kBND_Pause << AudioProcessor::kSilenceTypeShift);
                     tokens.push_back(tok);
                     LastEndPunct = AudioProcessor::_Comma_;
-                } else if (m[4].matched) {      // ... . ! ? ~
-                    std::string p4 = m[4].str();
-                    LastEndPunct = (p4 == "...") ? AudioProcessor::_Ellipsis_
-                                 : (p4 == "?")   ? AudioProcessor::_Quest_
-                                 : (p4 == "!")   ? AudioProcessor::_Exclam_
-                                 : (p4 == "~")   ? AudioProcessor::_Tilde_
-                                 : AudioProcessor::_Period_;
+                } else if (t.kind == TokKind::SentPunct) {
+                    LastEndPunct = SentPunctToEndPunct(normalized, t.pos, t.len);
                 }
-                // whitespace: skip
             }
         }
 
