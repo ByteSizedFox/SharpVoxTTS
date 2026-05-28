@@ -10,7 +10,7 @@ worker.onmessage = ({ data }) => {
             const activeTab = document.querySelector('.tab-btn.active');
             if (activeTab) {
                 const mode = activeTab.id.replace('tab-', '');
-                worker.postMessage({ type: 'init', klattsch: mode === 'klattsch' || mode === 'ust' });
+                worker.postMessage({ type: 'init', klattsch: mode === 'klattsch' || mode === 'tools' });
             }
             window.dispatchEvent(new Event('sharpvox-ready'));
             break;

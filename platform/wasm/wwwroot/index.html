@@ -59,6 +59,7 @@
         
         #logic { display: none; }
         .kl-only { display: none; }
+        .tools-only { display: none; }
 
         .site-header { background: var(--panel); border-bottom: 1px solid var(--line); padding: 8px 20px; display: flex; align-items: center; gap: 20px; }
         .site-header a { color: var(--dim); font-size: 0.8rem; text-decoration: none; }
@@ -95,14 +96,14 @@
             <div class="tabs">
                 <button id="tab-tts" class="tab-btn active" onclick="ui.setMode('tts')">Text To Speech</button>
                 <button id="tab-klattsch" class="tab-btn" onclick="ui.setMode('klattsch')">KLATTSCH Mode</button>
-                <button id="tab-ust" class="tab-btn" onclick="ui.setMode('ust')">UST Converter</button>
+                <button id="tab-tools" class="tab-btn" onclick="ui.setMode('tools')">Tools</button>
             </div>
 
             <textarea id="inputText" spellcheck="false" placeholder="Enter text to speak...">Hello, my name is SharpVox.</textarea>
 
-            <div id="ust-panel" class="ust-only" style="display:none">
+            <div id="tools-panel" class="tools-only" style="display:none">
                 <fieldset>
-                    <legend>ust conversion</legend>
+                    <legend>ust converter</legend>
                     <div style="display:flex; flex-direction:column; gap:8px;">
                         <div class="controls-row">
                             <button onclick="ui.triggerFileInput('ustFile')">Select .ust file</button>
@@ -137,10 +138,30 @@
                         <button class="speak-btn" onclick="ui.convertUst()">CONVERT TO KLATTSCH</button>
                     </div>
                 </fieldset>
-                
+
+                <fieldset style="margin-top:8px;">
+                    <legend>midi converter</legend>
+                    <div style="display:flex; flex-direction:column; gap:8px;">
+                        <div class="controls-row">
+                            <button onclick="ui.triggerFileInput('midiFile')">Select .mid file</button>
+                            <input type="file" id="midiFile" style="display:none" onchange="ui.onMidiFileSelected()" accept=".mid,.midi" />
+                            <span id="midiFileName" style="font-size:0.75rem; color:var(--dim)">no file selected</span>
+                        </div>
+                        <div class="controls-row">
+                            <label style="font-size:0.8rem; color:var(--dim)">Phoneme:</label>
+                            <input type="text" id="midiPhoneme" value="AW" style="width:52px; background:#262626; color:var(--fg); border:1px solid var(--line); border-radius:2px; padding:4px 6px; font:inherit; font-size:0.82rem;" />
+                            <label style="font-size:0.8rem; color:var(--dim); margin-left:10px;">Channel:</label>
+                            <select id="midiChannel" style="min-width:200px;">
+                                <option value="all">All channels</option>
+                            </select>
+                        </div>
+                        <button class="speak-btn" onclick="ui.convertMidi()">CONVERT TO KLATTSCH</button>
+                    </div>
+                </fieldset>
+
                 <div style="margin-top:10px;">
                     <label style="font-size:0.75rem; color:var(--dim); text-transform:uppercase; letter-spacing:0.05em;">Diagnostics</label>
-                    <pre id="ustDiagnostics" style="background:#0c0c0c; border:1px solid var(--line); border-radius:2px; padding:8px; margin-top:4px; font-size:0.75rem; line-height:1.45; color:var(--dim); min-height:40px; white-space:pre-wrap;"></pre>
+                    <pre id="toolsDiagnostics" style="background:#0c0c0c; border:1px solid var(--line); border-radius:2px; padding:8px; margin-top:4px; font-size:0.75rem; line-height:1.45; color:var(--dim); min-height:40px; white-space:pre-wrap;"></pre>
                 </div>
             </div>
 
@@ -597,6 +618,7 @@
     <img src="firefox-logo.png" class="ff-only" alt="Firefox" />
 
     <script src="js/UstConverter.js"></script>
+    <script src="js/MidiConverter.js"></script>
     <script src="js/AudioPlayer.js"></script>
     <script src="js/ui.js"></script>
     <script type="module" src="js/main.js"></script>

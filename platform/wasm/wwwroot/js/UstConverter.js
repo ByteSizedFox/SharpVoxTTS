@@ -288,9 +288,6 @@
 
   const romajiKeys = new Set(romaji.map(x => x[0]));
 
-  // ──────────────────────────────────────────────
-  // Private helpers
-  // ──────────────────────────────────────────────
 
   function ticksToMs(ticks, tempo) {
     return Math.max(1, Math.round(ticks / 480.0 * 60000.0 / tempo));
@@ -627,9 +624,6 @@
     return out.trimEnd();
   }
 
-  // ──────────────────────────────────────────────
-  // Public API
-  // ──────────────────────────────────────────────
 
   function convert(ustText, language, noteOffset, compatBank) {
     language   = language   || "auto";
@@ -682,8 +676,6 @@
 
           const mapped = phonemes.map(p => mapPhoneme(p, compatBank));
 
-          // Nucleus-sustain diphthong slurring: hold the nucleus on this note,
-          // glide happens on the next note which continues the same diphthong.
           if (mapped.length > 0) {
             const d = diphthongs.get(mapped[mapped.length - 1]);
             if (d) {

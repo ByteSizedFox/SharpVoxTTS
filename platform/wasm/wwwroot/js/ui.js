@@ -77,20 +77,17 @@ window.ui = {
 
     setMode: (mode) => {
         const klattsch = mode === 'klattsch';
-        const ust = mode === 'ust';
+        const tools = mode === 'tools';
         const tts = mode === 'tts';
 
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
         document.getElementById('tab-' + mode).classList.add('active');
 
-        const klElems = document.querySelectorAll('.kl-only');
-        klElems.forEach(el => el.style.display = klattsch ? 'block' : 'none');
-
-        const ustElems = document.querySelectorAll('.ust-only');
-        ustElems.forEach(el => el.style.display = ust ? 'block' : 'none');
+        document.querySelectorAll('.kl-only').forEach(el => el.style.display = klattsch ? 'block' : 'none');
+        document.querySelectorAll('.tools-only').forEach(el => el.style.display = tools ? 'block' : 'none');
 
         const inputTextArea = document.getElementById('inputText');
-        inputTextArea.style.display = ust ? 'none' : 'block';
+        inputTextArea.style.display = tools ? 'none' : 'block';
 
         if (klattsch) {
             inputTextArea.placeholder = "HH AH L OW\nb140 AY+15 D IH D ...";
@@ -98,7 +95,7 @@ window.ui = {
             inputTextArea.placeholder = "Enter text to speak...";
         }
 
-        window.sharpVox?.SetMode(klattsch || ust);
+        window.sharpVox?.SetMode(klattsch || tools);
     },
 
     onUstFileSelected: () => {
@@ -141,7 +138,53 @@ window.ui = {
 
         const result = window.UstConverter.convert(text, language, offset, bank);
         document.getElementById('inputText').value = result.klattsch;
-        document.getElementById('ustDiagnostics').innerText = result.diagnostics;
+        document.getElementById('toolsDiagnostics').innerText = result.diagnostics;
+        window.ui.updateStatus("conversion complete — klattsch ready");
+        window.ui.setMode('klattsch');
+    },
+
+    onMidiFileSelected: async () => {
+        const input = document.getElementById('midiFile');
+        if (input.files.length === 0) return;
+        const file = input.files[0];
+        document.getElementById('midiFileName').innerText = file.name;
+
+        const buffer = await file.arrayBuffer();
+        const result = window.MidiConverter.parse(buffer);
+
+        if (result.error) {
+            document.getElementById('toolsDiagnostics').innerText = `Parse error: ${result.error}`;
+            window.ui.updateStatus("midi parse failed");
+            return;
+        }
+
+        const sel = document.getElementById('midiChannel');
+        sel.innerHTML = '<option value="all">All channels</option>';
+        for (const ch of result.channels) {
+            const opt = document.createElement('option');
+            opt.value = ch.id;
+            opt.textContent = ch.label;
+            sel.appendChild(opt);
+        }
+        const firstMelody = result.channels.find(c => c.id !== 9);
+        if (firstMelody) sel.value = firstMelody.id;
+
+        const summary = result.channels.map(c => `  ${c.label}`).join('\n');
+        document.getElementById('toolsDiagnostics').innerText =
+            `MIDI loaded — ${result.tpb} ticks/beat, ${result.channels.length} channel(s)\n${summary}`;
+        window.ui.updateStatus("midi loaded — select channel and convert");
+    },
+
+    convertMidi: () => {
+        const phoneme = (document.getElementById('midiPhoneme').value || 'AW').trim().toUpperCase() || 'AW';
+        const channel = document.getElementById('midiChannel').value;
+        const klattsch = window.MidiConverter.convert(channel, phoneme);
+        if (!klattsch) {
+            window.ui.updateStatus("no midi file loaded");
+            return;
+        }
+        document.getElementById('inputText').value = klattsch;
+        document.getElementById('toolsDiagnostics').innerText = `Channel ${channel} converted`;
         window.ui.updateStatus("conversion complete — klattsch ready");
         window.ui.setMode('klattsch');
     },
