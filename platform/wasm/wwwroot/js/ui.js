@@ -79,6 +79,7 @@ window.ui = {
         const klattsch = mode === 'klattsch';
         const tools = mode === 'tools';
         const tts = mode === 'tts';
+        if (location.hash.slice(1) !== mode) location.hash = mode;
 
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
         document.getElementById('tab-' + mode).classList.add('active');
@@ -614,3 +615,10 @@ window.ui = {
         document.getElementById('downloadBtn').style.display = show ? 'inline-block' : 'none';
     }
 };
+
+(function () {
+    const MODES = new Set(['tts', 'klattsch', 'tools']);
+    const fromHash = () => { const m = location.hash.slice(1); if (MODES.has(m)) window.ui.setMode(m); };
+    window.addEventListener('hashchange', fromHash);
+    fromHash();
+}());
