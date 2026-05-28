@@ -156,9 +156,6 @@ namespace SharpVox {
         // Private implementation constants
         static constexpr int32_t kFrameTime          = 5;
         static constexpr int32_t kNormalPitch        = 579;
-        static constexpr int32_t kPhonBufSize        = 16384;
-        static constexpr int32_t kPhonBuf_Red_Zone   = kPhonBufSize - 10;
-        static constexpr int32_t kPitchBufSize       = kPhonBufSize * 6;
         static constexpr int32_t kMaxRamps           = 256;
         static constexpr int32_t kStepSizeRes        = 3;
         static constexpr int32_t kNeverHappens       = -10000;
@@ -214,42 +211,54 @@ namespace SharpVox {
         static constexpr uint32_t kFrontF_BE    = 1u << 21;
         static constexpr int64_t  kPlosive_Release = 0x4000;
 
-        // Internal buffers
-        int16_t  _phonBuf1[kPhonBufSize];
-        int64_t  _phonCtrlBuf1[kPhonBufSize];
-        int16_t  _userPitchBuf1[kPhonBufSize];
-        int16_t  _userDurBuf1[kPhonBufSize];
-        int16_t  _userNoteBuf1[kPhonBufSize];
-        int16_t  _userRateBuf1[kPhonBufSize];
-        uint8_t  _aspirationBuf1[kPhonBufSize];
-        uint8_t  _tiltBuf1[kPhonBufSize];
-        uint8_t  _effortBuf1[kPhonBufSize];
-        uint8_t  _vibDepthBuf1[kPhonBufSize];
-        uint8_t  _vibRateBuf1[kPhonBufSize];
-        uint8_t  _tremDepthBuf1[kPhonBufSize];
-        uint8_t  _tremRateBuf1[kPhonBufSize];
+        // Working buffers — sized per-call to actual clause length in Process().
+        // Buf1: raw phoneme stream from the front-end (LoadPhonemes).
+        // Buf2: allophone-transformed stream (FillPhonBuf2).  Allocated at 2× buf1
+        //       capacity to absorb any glottal-stop / plosive-release insertions.
+        // PitchBuf: Tilt events (FillPitchBuf).  Allocated at 6× buf1 capacity.
+        // RampSteps: baseline declination steps across phrase resets.  Fixed at
+        //            kMaxRamps because that bound is independent of clause length.
+        std::vector<int16_t>  _phonBuf1;
+        std::vector<int64_t>  _phonCtrlBuf1;
+        std::vector<int16_t>  _userPitchBuf1;
+        std::vector<int16_t>  _userDurBuf1;
+        std::vector<int16_t>  _userNoteBuf1;
+        std::vector<int16_t>  _userRateBuf1;
+        std::vector<uint8_t>  _aspirationBuf1;
+        std::vector<uint8_t>  _tiltBuf1;
+        std::vector<uint8_t>  _effortBuf1;
+        std::vector<uint8_t>  _vibDepthBuf1;
+        std::vector<uint8_t>  _vibRateBuf1;
+        std::vector<uint8_t>  _tremDepthBuf1;
+        std::vector<uint8_t>  _tremRateBuf1;
 
-        int16_t  _phonBuf2[kPhonBufSize];
-        int64_t  _phonCtrlBuf2[kPhonBufSize];
-        int16_t  _userPitchBuf2[kPhonBufSize];
-        int16_t  _userDurBuf2[kPhonBufSize];
-        int16_t  _userNoteBuf2[kPhonBufSize];
-        int16_t  _userRateBuf2[kPhonBufSize];
-        uint8_t  _aspirationBuf2[kPhonBufSize];
-        uint8_t  _tiltBuf2[kPhonBufSize];
-        uint8_t  _effortBuf2[kPhonBufSize];
-        uint8_t  _vibDepthBuf2[kPhonBufSize];
-        uint8_t  _vibRateBuf2[kPhonBufSize];
-        uint8_t  _tremDepthBuf2[kPhonBufSize];
-        uint8_t  _tremRateBuf2[kPhonBufSize];
+        std::vector<int16_t>  _phonBuf2;
+        std::vector<int64_t>  _phonCtrlBuf2;
+        std::vector<int16_t>  _userPitchBuf2;
+        std::vector<int16_t>  _userDurBuf2;
+        std::vector<int16_t>  _userNoteBuf2;
+        std::vector<int16_t>  _userRateBuf2;
+        std::vector<uint8_t>  _aspirationBuf2;
+        std::vector<uint8_t>  _tiltBuf2;
+        std::vector<uint8_t>  _effortBuf2;
+        std::vector<uint8_t>  _vibDepthBuf2;
+        std::vector<uint8_t>  _vibRateBuf2;
+        std::vector<uint8_t>  _tremDepthBuf2;
+        std::vector<uint8_t>  _tremRateBuf2;
 
-        int16_t  _durBuf[kPhonBufSize];
-        int16_t  _pitchBufFreq[kPitchBufSize];
-        int16_t  _pitchBufTime[kPitchBufSize];
-        int16_t  _pitchBufFlags[kPitchBufSize];
-        int16_t  _pitchBufTiltX64[kPitchBufSize];
-        int16_t  _pitchBufDuration[kPitchBufSize];
-        int64_t  _rampSteps[kMaxRamps];
+        std::vector<int16_t>  _durBuf;
+        std::vector<int16_t>  _pitchBufFreq;
+        std::vector<int16_t>  _pitchBufTime;
+        std::vector<int16_t>  _pitchBufFlags;
+        std::vector<int16_t>  _pitchBufTiltX64;
+        std::vector<int16_t>  _pitchBufDuration;
+        int64_t               _rampSteps[kMaxRamps];
+
+        // Per-call buffer limits: set by ClearBuffers(), replace the old static
+        // kPhonBuf_Red_Zone / (kPitchBufSize-1) guards.
+        int32_t  _phonBuf1Limit = 0;
+        int32_t  _phonBuf2Limit = 0;
+        int32_t  _pitchBufLimit = 0;
 
         // Voice params, set from VoiceData
         int16_t  _speechRate;
@@ -307,7 +316,7 @@ namespace SharpVox {
 
         // Pipeline setup helpers
         void InitFromVoice(const VoiceData& vd);
-        void ClearBuffers();
+        void ClearBuffers(int32_t tokenCount);
         void InitRateParams();
         void InitPitchParams();
         static int16_t HzToPitch(int16_t hz);

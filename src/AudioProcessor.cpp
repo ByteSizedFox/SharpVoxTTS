@@ -117,7 +117,7 @@ namespace SharpVox {
         _endPunctuation = endPunctuation;
         _singing = false;
 
-        ClearBuffers();
+        ClearBuffers((int32_t)tokens.size());
         InitRateParams();
         InitPitchParams();
 
@@ -137,18 +137,54 @@ namespace SharpVox {
 
     // Pipeline setup helpers
 
-    void AudioProcessor::ClearBuffers() {
-        for (int32_t i = 0; i < kPhonBufSize; i++) {
-            _phonBuf1[i] = _SIL_;
-            _phonBuf2[i] = _SIL_;
-            _phonCtrlBuf1[i] = 0;
-            _phonCtrlBuf2[i] = 0;
-            _userDurBuf1[i] = kDur_One;
-            _userDurBuf2[i] = kDur_One;
-            _userPitchBuf1[i] = 0;
-            _userNoteBuf1[i] = 0;
-            _userRateBuf1[i] = 0;
-        }
+    void AudioProcessor::ClearBuffers(int32_t tokenCount) {
+        // Size buffers to the actual clause length plus a safety margin:
+        //   buf1:   raw phoneme slots — tokens + initial SIL + trailing SIL + lookahead writes
+        //   buf2:   allophone output — 2× buf1 to absorb insertions (glottal stop, plosive release)
+        //   pitch:  Tilt events — 6× buf1, matching the historical kPitchBufSize ratio
+        const int32_t buf1N  = tokenCount + 16;
+        const int32_t buf2N  = tokenCount * 2 + 16;
+        const int32_t pitchN = tokenCount * 6 + 16;
+
+        // Limits replace the old static kPhonBuf_Red_Zone / (kPitchBufSize-1) guards.
+        _phonBuf1Limit = buf1N  - 10;
+        _phonBuf2Limit = buf2N  - 10;
+        _pitchBufLimit = pitchN - 1;
+
+        _phonBuf1.assign(buf1N,  (int16_t)_SIL_);
+        _phonCtrlBuf1.assign(buf1N,  (int64_t)0);
+        _userDurBuf1.assign(buf1N,   (int16_t)kDur_One);
+        _userPitchBuf1.assign(buf1N, (int16_t)0);
+        _userNoteBuf1.assign(buf1N,  (int16_t)0);
+        _userRateBuf1.assign(buf1N,  (int16_t)0);
+        _aspirationBuf1.assign(buf1N, (uint8_t)0);
+        _tiltBuf1.assign(buf1N,       (uint8_t)0);
+        _effortBuf1.assign(buf1N,     (uint8_t)0);
+        _vibDepthBuf1.assign(buf1N,   (uint8_t)0);
+        _vibRateBuf1.assign(buf1N,    (uint8_t)0);
+        _tremDepthBuf1.assign(buf1N,  (uint8_t)0);
+        _tremRateBuf1.assign(buf1N,   (uint8_t)0);
+
+        _phonBuf2.assign(buf2N,  (int16_t)_SIL_);
+        _phonCtrlBuf2.assign(buf2N,  (int64_t)0);
+        _userDurBuf2.assign(buf2N,   (int16_t)kDur_One);
+        _userPitchBuf2.assign(buf2N, (int16_t)0);
+        _userNoteBuf2.assign(buf2N,  (int16_t)0);
+        _userRateBuf2.assign(buf2N,  (int16_t)0);
+        _aspirationBuf2.assign(buf2N, (uint8_t)0);
+        _tiltBuf2.assign(buf2N,       (uint8_t)0);
+        _effortBuf2.assign(buf2N,     (uint8_t)0);
+        _vibDepthBuf2.assign(buf2N,   (uint8_t)0);
+        _vibRateBuf2.assign(buf2N,    (uint8_t)0);
+        _tremDepthBuf2.assign(buf2N,  (uint8_t)0);
+        _tremRateBuf2.assign(buf2N,   (uint8_t)0);
+
+        _durBuf.assign(buf2N,           (int16_t)0);
+        _pitchBufFreq.assign(pitchN,    (int16_t)0);
+        _pitchBufTime.assign(pitchN,    (int16_t)0);
+        _pitchBufFlags.assign(pitchN,   (int16_t)0);
+        _pitchBufTiltX64.assign(pitchN, (int16_t)0);
+        _pitchBufDuration.assign(pitchN,(int16_t)0);
     }
 
     void AudioProcessor::InitRateParams() {
@@ -510,7 +546,7 @@ namespace SharpVox {
         _phonBuf1InIndex = 1;
 
         for (const auto& tok : tokens) {
-            if (_phonBuf1InIndex >= kPhonBuf_Red_Zone) {
+            if (_phonBuf1InIndex >= _phonBuf1Limit) {
                 break;
             }
             _phonBuf1[_phonBuf1InIndex]       = tok.Phon;
@@ -535,7 +571,7 @@ namespace SharpVox {
         // Add trailing boundary SIL, but only if the last phoneme isn't already a
         // terminal SIL (sentence-final comma from FrontEnd). If one is already
         // there, upgrade its boundary type to match the sentence-ending punctuation.
-        if (_phonBuf1InIndex < kPhonBuf_Red_Zone && _endPunctuation != 0) {
+        if (_phonBuf1InIndex < _phonBuf1Limit && _endPunctuation != 0) {
             int32_t bndType;
             if (_endPunctuation == _Period_) {
                 bndType = kBND_Decl;
@@ -1078,7 +1114,7 @@ namespace SharpVox {
                 _tremDepthBuf2[_phonBuf2InIndex]  = tremDepth;
                 _tremRateBuf2[_phonBuf2InIndex]   = tremRate;
 
-                if (_phonBuf2InIndex < kPhonBuf_Red_Zone) {
+                if (_phonBuf2InIndex < _phonBuf2Limit) {
                     _phonBuf2InIndex++;
                 }
 
@@ -1097,7 +1133,7 @@ namespace SharpVox {
                     _tremDepthBuf2[_phonBuf2InIndex]  = tremDepth;
                     _tremRateBuf2[_phonBuf2InIndex]   = tremRate;
 
-                    if (_phonBuf2InIndex < kPhonBuf_Red_Zone) {
+                    if (_phonBuf2InIndex < _phonBuf2Limit) {
                         _phonBuf2InIndex++;
                     }
                 }
@@ -1884,7 +1920,7 @@ namespace SharpVox {
         _pitchBufTiltX64[_pitchBufInIndex]  = tiltX64;
         _pitchBufDuration[_pitchBufInIndex] = (int16_t)std::min(duration, (int32_t)INT16_MAX);
         _pitchBufFlags[_pitchBufInIndex]    = flags;
-        if (_pitchBufInIndex < kPitchBufSize - 1) {
+        if (_pitchBufInIndex < _pitchBufLimit) {
             _pitchBufInIndex++;
         }
     }
@@ -1939,7 +1975,7 @@ namespace SharpVox {
             if ((curFlags & kHasReleaseF) == 0) {
                 continue;
             }
-            if (_phonBuf2InIndex >= kPhonBuf_Red_Zone) {
+            if (_phonBuf2InIndex >= _phonBuf2Limit) {
                 break;
             }
 
