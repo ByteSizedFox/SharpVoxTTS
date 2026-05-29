@@ -386,79 +386,89 @@ bool VoicePresets::TryGet(const std::string& name, VoiceData& outVoice) {
 }
 
 bool VoicePresets::SetParam(VoiceData& v, const std::string& name, float value) {
-    auto i16 = [](float f) { return static_cast<int16_t>(f); };
+    auto clamp = [](float f, float lo, float hi) -> int16_t {
+        if (f < lo) f = lo;
+        if (f > hi) f = hi;
+        return static_cast<int16_t>(f);
+    };
+    auto clampf = [](float f, float lo, float hi) -> float {
+        if (f < lo) return lo;
+        if (f > hi) return hi;
+        return f;
+    };
 
-    if      (name == "pitch")          { v.PitchHz        = i16(value); }
-    else if (name == "rate")           { v.Rate           = i16(value); }
+    // Ranges chosen to prevent filter instability; generous but not absurd.
+    if      (name == "pitch")          { v.PitchHz          = clamp(value,   40,   1000); }
+    else if (name == "rate")           { v.Rate             = clamp(value,   40,    600); }
     else if (name == "volume"
-          || name == "vgain")          { v.VGain          = i16(value); }
-    else if (name == "again")          { v.AGain          = i16(value); }
-    else if (name == "acycle")         { v.ACycle         = i16(value); }
+          || name == "vgain")          { v.VGain            = clamp(value,    0,    100); }
+    else if (name == "again")          { v.AGain            = clamp(value,    0,    600); }
+    else if (name == "acycle")         { v.ACycle           = clamp(value,    1,    256); }
     else if (name == "tract"
-          || name == "tractscale")     { v.TractScale     = value;      }
-    else if (name == "pitchrange")     { v.PitchRange     = i16(value); }
-    else if (name == "stressgain")     { v.StressGain     = i16(value); }
-    else if (name == "voicetype")      { v.VoiceType      = i16(value); }
-    else if (name == "tremolodepth")   { v.TremoloDepth   = i16(value); }
-    else if (name == "tremolorate")    { v.TremoloRate    = i16(value); }
-    else if (name == "jitter")         { v.Jitter         = i16(value); }
-    else if (name == "shimmer")        { v.Shimmer        = i16(value); }
-    else if (name == "diplophonia")    { v.Diplophonia    = i16(value); }
+          || name == "tractscale")     { v.TractScale       = clampf(value, 0.3f,  2.5f); }
+    else if (name == "pitchrange")     { v.PitchRange       = clamp(value,    0,    500); }
+    else if (name == "stressgain")     { v.StressGain       = clamp(value,    0,    200); }
+    else if (name == "voicetype")      { v.VoiceType        = clamp(value,    0,      1); }
+    else if (name == "tremolodepth")   { v.TremoloDepth     = clamp(value,    0,    100); }
+    else if (name == "tremolorate")    { v.TremoloRate      = clamp(value,    0,    200); }
+    else if (name == "jitter")         { v.Jitter           = clamp(value,    0,    100); }
+    else if (name == "shimmer")        { v.Shimmer          = clamp(value,    0,    100); }
+    else if (name == "diplophonia")    { v.Diplophonia      = clamp(value,    0,    100); }
     else if (name == "fry"
-          || name == "fryamount")      { v.FryAmount      = i16(value); }
-    else if (name == "subglottal")     { v.SubglottalAmt  = i16(value); }
+          || name == "fryamount")      { v.FryAmount        = clamp(value,    0,    100); }
+    else if (name == "subglottal")     { v.SubglottalAmt    = clamp(value,    0,    100); }
     else if (name == "breath"
-          || name == "breathamt")      { v.BreathAmt      = i16(value); }
+          || name == "breathamt")      { v.BreathAmt        = clamp(value,    0,    100); }
     else if (name == "oq"
-          || name == "openquotient")   { v.OpenQuotient   = i16(value); }
-    else if (name == "oqstresslink")   { v.OQStressLink   = i16(value); }
-    else if (name == "oqf0link")       { v.OQF0Link       = i16(value); }
+          || name == "openquotient")   { v.OpenQuotient     = clamp(value,    0,    100); }
+    else if (name == "oqstresslink")   { v.OQStressLink     = clamp(value,    0,    100); }
+    else if (name == "oqf0link")       { v.OQF0Link         = clamp(value,    0,    100); }
     else if (name == "larynx"
-          || name == "larynxoffset")   { v.LarynxOffset   = i16(value); }
-    else if (name == "pharyngeal")     { v.PharyngealAmt  = i16(value); }
-    else if (name == "pitchoffset")    { v.PitchOffsetHz  = i16(value); }
-    else if (name == "liprounding")    { v.LipRounding    = i16(value); }
+          || name == "larynxoffset")   { v.LarynxOffset     = clamp(value, -800,    800); }
+    else if (name == "pharyngeal")     { v.PharyngealAmt    = clamp(value,    0,    100); }
+    else if (name == "pitchoffset")    { v.PitchOffsetHz    = clamp(value, -500,    500); }
+    else if (name == "liprounding")    { v.LipRounding      = clamp(value, -100,    100); }
     else if (name == "onset"
-          || name == "onsethard")      { v.OnsetHardness  = i16(value); }
-    else if (name == "f4freq")         { v.F4Freq         = i16(value); }
-    else if (name == "f4bw")           { v.F4BW           = i16(value); }
-    else if (name == "f5freq")         { v.F5Freq         = i16(value); }
-    else if (name == "f5bw")           { v.F5BW           = i16(value); }
-    else if (name == "f4pfreq")        { v.F4pFreq        = i16(value); }
-    else if (name == "f4pbw")          { v.F4pBW          = i16(value); }
-    else if (name == "f5pfreq")        { v.F5pFreq        = i16(value); }
-    else if (name == "f5pbw")          { v.F5pBW          = i16(value); }
-    else if (name == "f6pfreq")        { v.F6pFreq        = i16(value); }
-    else if (name == "f6pbw")          { v.F6pBW          = i16(value); }
-    else if (name == "nasalbase")      { v.NasalBase      = i16(value); }
-    else if (name == "nasaltarg")      { v.NasalTarg      = i16(value); }
-    else if (name == "nasalbw")        { v.NasalBW        = i16(value); }
-    else if (name == "nasalamt")       { v.NasalAmt       = i16(value); }
-    else if (name == "ngain")          { v.NGain          = i16(value); }
-    else if (name == "bwgain1")        { v.BwGain1        = i16(value); }
-    else if (name == "bwgain2")        { v.BwGain2        = i16(value); }
-    else if (name == "bwgain3")        { v.BwGain3        = i16(value); }
-    else if (name == "f1offset")       { v.F1_Offset      = i16(value); }
-    else if (name == "f2offset")       { v.F2_Offset      = i16(value); }
-    else if (name == "f3offset")       { v.F3_Offset      = i16(value); }
-    else if (name == "locus")          { v.Locus          = i16(value); }
-    else if (name == "chorus")         { v.Chorus         = i16(value); }
-    else if (name == "intonation")     { v.Intonation     = i16(value); }
-    else if (name == "riseamt")        { v.RiseAmt        = i16(value); }
-    else if (name == "fallamt")        { v.FallAmt        = i16(value); }
-    else if (name == "riseamt1")       { v.RiseAmt1       = i16(value); }
-    else if (name == "fallamt1")       { v.FallAmt1       = i16(value); }
-    else if (name == "baselinefall")   { v.BaselineFall   = i16(value); }
-    else if (name == "uptalk")         { v.UptalkAmt      = i16(value); }
-    else if (name == "stressearly")    { v.StressEarly    = i16(value); }
-    else if (name == "breakstrength")  { v.BreakStrength  = i16(value); }
-    else if (name == "emphasisboost")  { v.EmphasisBoost  = i16(value); }
-    else if (name == "vocalconfidence"){ v.VocalConfidence= i16(value); }
-    else if (name == "vibratodepth1")  { v.VibratoDepth1Raw = i16(value); }
-    else if (name == "vibratodepth2")  { v.VibratoDepth2Raw = i16(value); }
-    else if (name == "vibratofreq")    { v.VibratoFreqRaw = i16(value); }
-    else if (name == "rvbdelay")       { v.RvbDelay       = i16(value); }
-    else if (name == "rvbdepth")       { v.RvbDepth       = i16(value); }
+          || name == "onsethard")      { v.OnsetHardness    = clamp(value,    0,    100); }
+    else if (name == "f4freq")         { v.F4Freq           = clamp(value,  100,   7000); }
+    else if (name == "f4bw")           { v.F4BW             = clamp(value,   10,   3000); }
+    else if (name == "f5freq")         { v.F5Freq           = clamp(value,  100,   7000); }
+    else if (name == "f5bw")           { v.F5BW             = clamp(value,   10,   3000); }
+    else if (name == "f4pfreq")        { v.F4pFreq          = clamp(value,  100,   7000); }
+    else if (name == "f4pbw")          { v.F4pBW            = clamp(value,   10,   3000); }
+    else if (name == "f5pfreq")        { v.F5pFreq          = clamp(value,  100,   7000); }
+    else if (name == "f5pbw")          { v.F5pBW            = clamp(value,   10,   3000); }
+    else if (name == "f6pfreq")        { v.F6pFreq          = clamp(value,  100,   7000); }
+    else if (name == "f6pbw")          { v.F6pBW            = clamp(value,   10,   3000); }
+    else if (name == "nasalbase")      { v.NasalBase        = clamp(value,  100,    800); }
+    else if (name == "nasaltarg")      { v.NasalTarg        = clamp(value,  100,    800); }
+    else if (name == "nasalbw")        { v.NasalBW          = clamp(value,   10,    500); }
+    else if (name == "nasalamt")       { v.NasalAmt         = clamp(value,    0,    100); }
+    else if (name == "ngain")          { v.NGain            = clamp(value,    0,    400); }
+    else if (name == "bwgain1")        { v.BwGain1          = clamp(value,    0,    400); }
+    else if (name == "bwgain2")        { v.BwGain2          = clamp(value,    0,    400); }
+    else if (name == "bwgain3")        { v.BwGain3          = clamp(value,    0,    400); }
+    else if (name == "f1offset")       { v.F1_Offset        = clamp(value, -300,    300); }
+    else if (name == "f2offset")       { v.F2_Offset        = clamp(value, -300,    300); }
+    else if (name == "f3offset")       { v.F3_Offset        = clamp(value, -300,    300); }
+    else if (name == "locus")          { v.Locus            = clamp(value,    0,    100); }
+    else if (name == "chorus")         { v.Chorus           = clamp(value,    0,    100); }
+    else if (name == "intonation")     { v.Intonation       = clamp(value,    0,    200); }
+    else if (name == "riseamt")        { v.RiseAmt          = clamp(value, -200,    200); }
+    else if (name == "fallamt")        { v.FallAmt          = clamp(value, -200,    200); }
+    else if (name == "riseamt1")       { v.RiseAmt1         = clamp(value, -200,    200); }
+    else if (name == "fallamt1")       { v.FallAmt1         = clamp(value, -200,    200); }
+    else if (name == "baselinefall")   { v.BaselineFall     = clamp(value,    0,    200); }
+    else if (name == "uptalk")         { v.UptalkAmt        = clamp(value,    0,    100); }
+    else if (name == "stressearly")    { v.StressEarly      = clamp(value,  -50,     50); }
+    else if (name == "breakstrength")  { v.BreakStrength    = clamp(value,    0,    100); }
+    else if (name == "emphasisboost")  { v.EmphasisBoost    = clamp(value,    0,    100); }
+    else if (name == "vocalconfidence"){ v.VocalConfidence  = clamp(value,    0,    100); }
+    else if (name == "vibratodepth1")  { v.VibratoDepth1Raw = clamp(value,    0,    100); }
+    else if (name == "vibratodepth2")  { v.VibratoDepth2Raw = clamp(value,    0,    100); }
+    else if (name == "vibratofreq")    { v.VibratoFreqRaw   = clamp(value,    0,    100); }
+    else if (name == "rvbdelay")       { v.RvbDelay         = clamp(value,    0,    500); }
+    else if (name == "rvbdepth")       { v.RvbDepth         = clamp(value,    0,    100); }
     else return false;
     return true;
 }
