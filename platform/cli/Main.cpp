@@ -1,7 +1,5 @@
+#include <cstdio>
 #include <cstdlib>
-#include <fstream>
-#include <iostream>
-#include <sstream>
 #include <stdexcept>
 #include <string>
 #ifdef _WIN32
@@ -22,18 +20,17 @@ namespace SharpVox {
 namespace Cli {
 
 static void PrintHelp() {
-    // in case it wasn't obvious enough
-    std::cout << "SharpVox TTS\n";
-    std::cout << "Usage: sharpvox [options] [\"text\"]\n";
-    std::cout << "\n";
-    std::cout << "Options:\n";
-    std::cout << "  -o, --output <file>    Output WAV file (default: out.wav)\n";
-    std::cout << "  -i, --input <file>     Input text file (if text not provided as argument)\n";
-    std::cout << "  -r, --rate <value>     Speech rate (default: 160)\n";
-    std::cout << "  -s, --samplerate <hz>  Output sample rate (default: 48000)\n";
-    std::cout << "  -v, --voice <name>     Voice preset name \xe2\x80\x94 loads voices/<name>.json, fallback to baseline/whisper builtins\n";
-    std::cout << "  -h, --help             Show this help message\n";
-    std::cout << "\n";
+    printf("SharpVox TTS\n");
+    printf("Usage: sharpvox [options] [\"text\"]\n");
+    printf("\n");
+    printf("Options:\n");
+    printf("  -o, --output <file>    Output WAV file (default: out.wav)\n");
+    printf("  -i, --input <file>     Input text file (if text not provided as argument)\n");
+    printf("  -r, --rate <value>     Speech rate (default: 160)\n");
+    printf("  -s, --samplerate <hz>  Output sample rate (default: 48000)\n");
+    printf("  -v, --voice <name>     Voice preset name \xe2\x80\x94 loads voices/<name>.json, fallback to baseline/whisper builtins\n");
+    printf("  -h, --help             Show this help message\n");
+    printf("\n");
 }
 
 // Lowercase a string in-place
@@ -61,18 +58,23 @@ static bool TryParseInt(const std::string& s, int32_t& out) {
 }
 
 static bool FileExists(const std::string& path) {
-    std::ifstream f(path);
-    return f.good();
+    FILE* f = fopen(path.c_str(), "rb");
+    if (!f) return false;
+    fclose(f);
+    return true;
 }
 
 static std::string ReadAllText(const std::string& path) {
-    std::ifstream f(path);
-    if (!f.is_open()) {
-        return "";
-    }
-    std::ostringstream ss;
-    ss << f.rdbuf();
-    return ss.str();
+    FILE* f = fopen(path.c_str(), "rb");
+    if (!f) return "";
+    fseek(f, 0, SEEK_END);
+    long sz = ftell(f);
+    rewind(f);
+    if (sz <= 0) { fclose(f); return ""; }
+    std::string s(sz, '\0');
+    fread(&s[0], 1, (size_t)sz, f);
+    fclose(f);
+    return s;
 }
 
 // Returns the directory containing the running executable (best effort).
@@ -306,9 +308,10 @@ int main(int argc, char* argv[]) {
     } else {
         // Read from stdin if it is redirected (i.e. not a terminal)
         if (!::isatty(STDIN_FILENO)) {
-            std::ostringstream ss;
-            ss << std::cin.rdbuf();
-            text = ss.str();
+            char buf[4096];
+            size_t n;
+            while ((n = fread(buf, 1, sizeof(buf), stdin)) > 0)
+                text.append(buf, n);
         }
     }
 
@@ -351,7 +354,7 @@ int main(int argc, char* argv[]) {
             },
             sampleRate);
     } catch (const std::invalid_argument& ex) {
-        std::cerr << "Error: " << ex.what() << "\n";
+        fprintf(stderr, "Error: %s\n", ex.what());
         return 0;
     }
 
@@ -365,13 +368,12 @@ int main(int argc, char* argv[]) {
             c->writer->Write(chunk, chunkLen);
             *c->total += chunkLen;
         }, &ctx);
-        std::cout << "Generated " << outputPath
-                  << " (" << std::fixed;
-        std::cout.precision(2);
-        std::cout << (totalSamples / static_cast<float>(sampleRate))
-                  << "s @ " << sampleRate << " Hz)\n";
+        printf("Generated %s (%.2fs @ %d Hz)\n",
+               outputPath.c_str(),
+               totalSamples / (float)sampleRate,
+               sampleRate);
     } catch (const std::exception& ex) {
-        std::cout << "Error saving WAV: " << ex.what() << "\n";
+        fprintf(stderr, "Error saving WAV: %s\n", ex.what());
     }
 
     delete engine;
