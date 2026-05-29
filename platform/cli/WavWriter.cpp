@@ -1,35 +1,34 @@
 #include "WavWriter.h"
 
-#include <cstring>
 #include <stdexcept>
 
 namespace SharpVox {
 
 WavStreamWriter::WavStreamWriter(const std::string& path, int32_t sampleRate)
-    : _sampleRate(sampleRate), _dataBytes(0), _disposed(false) {
-    _fs.open(path, std::ios::binary | std::ios::out | std::ios::trunc);
-    if (!_fs.is_open()) {
+    : _fp(nullptr), _sampleRate(sampleRate), _dataBytes(0), _disposed(false) {
+    _fp = fopen(path.c_str(), "wb");
+    if (!_fp) {
         throw std::runtime_error("Failed to open output file: " + path);
     }
 
     // RIFF header
     WriteBytes("RIFF", 4);
-    WriteInt32(0); // Placeholder for file size - 8
+    WriteInt32(0); // placeholder: file size - 8
     WriteBytes("WAVE", 4);
 
     // fmt chunk
     WriteBytes("fmt ", 4);
-    WriteInt32(16); // Chunk size
-    WriteInt16(1);  // Audio format (PCM)
-    WriteInt16(1);  // Mono
+    WriteInt32(16); // chunk size
+    WriteInt16(1);  // PCM
+    WriteInt16(1);  // mono
     WriteInt32(sampleRate);
-    WriteInt32(sampleRate * 2); // Byte rate
-    WriteInt16(2);  // Block align
-    WriteInt16(16); // Bits per sample
+    WriteInt32(sampleRate * 2); // byte rate
+    WriteInt16(2);  // block align
+    WriteInt16(16); // bits per sample
 
     // data chunk
     WriteBytes("data", 4);
-    WriteInt32(0); // Placeholder for data size
+    WriteInt32(0); // placeholder: data size
 }
 
 WavStreamWriter::~WavStreamWriter() {
@@ -37,12 +36,10 @@ WavStreamWriter::~WavStreamWriter() {
 }
 
 void WavStreamWriter::Write(const int16_t* samples, int32_t count) {
-    if (count == 0) {
-        return;
+    if (count > 0) {
+        fwrite(samples, sizeof(int16_t), (size_t)count, _fp);
+        _dataBytes += count * 2;
     }
-
-    _fs.write(reinterpret_cast<const char*>(samples), count * sizeof(int16_t));
-    _dataBytes += count * 2;
 }
 
 void WavStreamWriter::Write(const std::vector<int16_t>& samples) {
@@ -50,31 +47,28 @@ void WavStreamWriter::Write(const std::vector<int16_t>& samples) {
 }
 
 void WavStreamWriter::Dispose() {
-    // Finalize header
-    if (_disposed) {
-        return;
-    }
+    if (_disposed) return;
     _disposed = true;
-
-    if (_fs.is_open()) {
-        _fs.seekp(4, std::ios::beg);
+    if (_fp) {
+        fseek(_fp, 4, SEEK_SET);
         WriteInt32(36 + _dataBytes);
-        _fs.seekp(40, std::ios::beg);
+        fseek(_fp, 40, SEEK_SET);
         WriteInt32(_dataBytes);
-        _fs.close();
+        fclose(_fp);
+        _fp = nullptr;
     }
 }
 
 void WavStreamWriter::WriteInt16(int16_t value) {
-    _fs.write(reinterpret_cast<const char*>(&value), sizeof(int16_t));
+    fwrite(&value, sizeof(int16_t), 1, _fp);
 }
 
 void WavStreamWriter::WriteInt32(int32_t value) {
-    _fs.write(reinterpret_cast<const char*>(&value), sizeof(int32_t));
+    fwrite(&value, sizeof(int32_t), 1, _fp);
 }
 
 void WavStreamWriter::WriteBytes(const char* data, int32_t count) {
-    _fs.write(data, count);
+    fwrite(data, 1, (size_t)count, _fp);
 }
 
 void WavWriter::WriteWav(const std::string& path, const std::vector<int16_t>& samples, int32_t sampleRate) {

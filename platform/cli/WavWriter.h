@@ -1,8 +1,8 @@
 #ifndef SHARPVOX_WAV_WRITER_H
 #define SHARPVOX_WAV_WRITER_H
 
+#include <cstdio>
 #include <cstdint>
-#include <fstream>
 #include <string>
 #include <vector>
 
@@ -24,10 +24,10 @@ public:
     void Dispose();
 
 private:
-    std::ofstream _fs;
+    FILE*   _fp;
     int32_t _sampleRate;
     int32_t _dataBytes;
-    bool _disposed;
+    bool    _disposed;
 
     void WriteInt16(int16_t value);
     void WriteInt32(int32_t value);
