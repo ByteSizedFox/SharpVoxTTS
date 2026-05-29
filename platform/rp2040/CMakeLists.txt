@@ -52,11 +52,17 @@ target_include_directories(sharptalk_demo PRIVATE ${ROOT}/include)
 # Exceptions on: several SharpVox constructors throw on bad input.
 # RTTI off: saves ~10 KB, SharpVox uses no dynamic_cast / typeid.
 # Increase the default 2 KB stack to 8 KB for LTS recursive context matching.
+option(BENCH "Silence UART PCM output for synthesis benchmarking" OFF)
+
 target_compile_options(sharptalk_demo PRIVATE
     $<$<COMPILE_LANGUAGE:CXX>:-fexceptions>
     $<$<COMPILE_LANGUAGE:CXX>:-fno-rtti>
     -DPICO_STACK_SIZE=0x1000
 )
+
+if(BENCH)
+    target_compile_definitions(sharptalk_demo PRIVATE BENCH)
+endif()
 
 target_link_libraries(sharptalk_demo
     pico_stdlib

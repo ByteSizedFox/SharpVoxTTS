@@ -1,7 +1,6 @@
 #include <cstdio>
 #include <cstring>
 #include <string>
-#include <vector>
 
 #include "pico/stdlib.h"
 #include "hardware/uart.h"
@@ -17,34 +16,30 @@ using namespace SharpVox;
 #define UART_TX_PIN 0
 #define UART_RX_PIN 1
 
-// 11025 Hz: lowest quality tier, halves synthesis work vs 22050.
-// At 11025×2 bytes/s = 22 KB/s, well within 230400 baud (~20 KB/s usable).
-static constexpr int32_t SAMPLE_RATE = 11025;
-
-// Cap at 6 seconds to stay within RP2040's 264 KB SRAM.
-// Settled engine heap ~146 KB + 6s audio ~132 KB = ~278 KB — tight but fits
-// because SymbolsTable peak (during init) and audio buffer never overlap.
-static constexpr int32_t MAX_SAMPLES = SAMPLE_RATE * 6;
+// 22050 Hz: half CD quality. ~44 KB/s output exceeds 230400 baud on real
+// hardware (~20 KB/s usable) — accept that constraint for now.
+static constexpr int32_t SAMPLE_RATE = 22050;
 
 static constexpr int MAX_LINE = 255;
 
-struct SynthCtx {
-    std::vector<int16_t>* out;
-    bool capped;
-};
-
-static void on_chunk(const int16_t* buf, int32_t len, void* ud) {
-    auto* ctx = static_cast<SynthCtx*>(ud);
-    if (ctx->capped) return;
-    int32_t space = MAX_SAMPLES - (int32_t)ctx->out->size();
-    if (space <= 0) { ctx->capped = true; return; }
-    int32_t take = (len < space) ? len : space;
-    ctx->out->insert(ctx->out->end(), buf, buf + take);
-    if (take < len) ctx->capped = true;
-}
-
 static void uart_write_all(const uint8_t* data, size_t len) {
     for (size_t i = 0; i < len; i++) uart_putc_raw(UART_PORT, (char)data[i]);
+}
+
+// Streams each synthesis chunk directly to UART — no audio buffer in RAM.
+// Protocol:
+//   "SHVX BEGIN <rate>\r\n"
+//   "SHVX CHUNK <n>\r\n" + n bytes raw PCM  (repeated per chunk)
+//   "SHVX END\r\n"
+static void on_chunk(const int16_t* buf, int32_t len, void*) {
+#ifndef BENCH
+    char hdr[32];
+    int hlen = snprintf(hdr, sizeof(hdr), "SHVX CHUNK %d\r\n", (int)len);
+    uart_write_all(reinterpret_cast<const uint8_t*>(hdr), (size_t)hlen);
+    uart_write_all(reinterpret_cast<const uint8_t*>(buf), (size_t)len * sizeof(int16_t));
+#else
+    (void)buf; (void)len;
+#endif
 }
 
 int main() {
@@ -54,7 +49,6 @@ int main() {
     uart_set_hw_flow(UART_PORT, false, false);
     uart_set_format(UART_PORT, 8, 1, UART_PARITY_NONE);
 
-    // Build engine — heavy: dict index (60 KB), LTS rules, SymbolsTable etc.
     // All rodata (dictionary blob, tables) lives in flash via XIP.
     TtsEngine engine(
         LibraryData::dictionary,
@@ -83,21 +77,11 @@ int main() {
             line[linePos] = '\0';
             linePos = 0;
 
-            std::vector<int16_t> samples;
-            samples.reserve(SAMPLE_RATE);
-            SynthCtx ctx{ &samples, false };
-
-            engine.Speak(std::string(line), on_chunk, &ctx);
-
-            // Header: "SHVX AUDIO <rate> <count>\r\n"
-            char hdr[48];
-            int hlen = snprintf(hdr, sizeof(hdr), "SHVX AUDIO %d %d\r\n",
-                                (int)SAMPLE_RATE, (int)samples.size());
+            char hdr[32];
+            int hlen = snprintf(hdr, sizeof(hdr), "SHVX BEGIN %d\r\n", (int)SAMPLE_RATE);
             uart_write_all(reinterpret_cast<const uint8_t*>(hdr), (size_t)hlen);
 
-            // Raw PCM (little-endian int16, native RP2040 byte order)
-            uart_write_all(reinterpret_cast<const uint8_t*>(samples.data()),
-                           samples.size() * sizeof(int16_t));
+            engine.Speak(std::string(line), on_chunk, nullptr);
 
             uart_puts(UART_PORT, "SHVX END\r\n");
 
