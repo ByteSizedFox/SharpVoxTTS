@@ -385,4 +385,82 @@ bool VoicePresets::TryGet(const std::string& name, VoiceData& outVoice) {
     return false;
 }
 
+bool VoicePresets::SetParam(VoiceData& v, const std::string& name, float value) {
+    auto i16 = [](float f) { return static_cast<int16_t>(f); };
+
+    if      (name == "pitch")          { v.PitchHz        = i16(value); }
+    else if (name == "rate")           { v.Rate           = i16(value); }
+    else if (name == "volume"
+          || name == "vgain")          { v.VGain          = i16(value); }
+    else if (name == "again")          { v.AGain          = i16(value); }
+    else if (name == "acycle")         { v.ACycle         = i16(value); }
+    else if (name == "tract"
+          || name == "tractscale")     { v.TractScale     = value;      }
+    else if (name == "pitchrange")     { v.PitchRange     = i16(value); }
+    else if (name == "stressgain")     { v.StressGain     = i16(value); }
+    else if (name == "voicetype")      { v.VoiceType      = i16(value); }
+    else if (name == "tremolodepth")   { v.TremoloDepth   = i16(value); }
+    else if (name == "tremolorate")    { v.TremoloRate    = i16(value); }
+    else if (name == "jitter")         { v.Jitter         = i16(value); }
+    else if (name == "shimmer")        { v.Shimmer        = i16(value); }
+    else if (name == "diplophonia")    { v.Diplophonia    = i16(value); }
+    else if (name == "fry"
+          || name == "fryamount")      { v.FryAmount      = i16(value); }
+    else if (name == "subglottal")     { v.SubglottalAmt  = i16(value); }
+    else if (name == "breath"
+          || name == "breathamt")      { v.BreathAmt      = i16(value); }
+    else if (name == "oq"
+          || name == "openquotient")   { v.OpenQuotient   = i16(value); }
+    else if (name == "oqstresslink")   { v.OQStressLink   = i16(value); }
+    else if (name == "oqf0link")       { v.OQF0Link       = i16(value); }
+    else if (name == "larynx"
+          || name == "larynxoffset")   { v.LarynxOffset   = i16(value); }
+    else if (name == "pharyngeal")     { v.PharyngealAmt  = i16(value); }
+    else if (name == "pitchoffset")    { v.PitchOffsetHz  = i16(value); }
+    else if (name == "liprounding")    { v.LipRounding    = i16(value); }
+    else if (name == "onset"
+          || name == "onsethard")      { v.OnsetHardness  = i16(value); }
+    else if (name == "f4freq")         { v.F4Freq         = i16(value); }
+    else if (name == "f4bw")           { v.F4BW           = i16(value); }
+    else if (name == "f5freq")         { v.F5Freq         = i16(value); }
+    else if (name == "f5bw")           { v.F5BW           = i16(value); }
+    else if (name == "f4pfreq")        { v.F4pFreq        = i16(value); }
+    else if (name == "f4pbw")          { v.F4pBW          = i16(value); }
+    else if (name == "f5pfreq")        { v.F5pFreq        = i16(value); }
+    else if (name == "f5pbw")          { v.F5pBW          = i16(value); }
+    else if (name == "f6pfreq")        { v.F6pFreq        = i16(value); }
+    else if (name == "f6pbw")          { v.F6pBW          = i16(value); }
+    else if (name == "nasalbase")      { v.NasalBase      = i16(value); }
+    else if (name == "nasaltarg")      { v.NasalTarg      = i16(value); }
+    else if (name == "nasalbw")        { v.NasalBW        = i16(value); }
+    else if (name == "nasalamt")       { v.NasalAmt       = i16(value); }
+    else if (name == "ngain")          { v.NGain          = i16(value); }
+    else if (name == "bwgain1")        { v.BwGain1        = i16(value); }
+    else if (name == "bwgain2")        { v.BwGain2        = i16(value); }
+    else if (name == "bwgain3")        { v.BwGain3        = i16(value); }
+    else if (name == "f1offset")       { v.F1_Offset      = i16(value); }
+    else if (name == "f2offset")       { v.F2_Offset      = i16(value); }
+    else if (name == "f3offset")       { v.F3_Offset      = i16(value); }
+    else if (name == "locus")          { v.Locus          = i16(value); }
+    else if (name == "chorus")         { v.Chorus         = i16(value); }
+    else if (name == "intonation")     { v.Intonation     = i16(value); }
+    else if (name == "riseamt")        { v.RiseAmt        = i16(value); }
+    else if (name == "fallamt")        { v.FallAmt        = i16(value); }
+    else if (name == "riseamt1")       { v.RiseAmt1       = i16(value); }
+    else if (name == "fallamt1")       { v.FallAmt1       = i16(value); }
+    else if (name == "baselinefall")   { v.BaselineFall   = i16(value); }
+    else if (name == "uptalk")         { v.UptalkAmt      = i16(value); }
+    else if (name == "stressearly")    { v.StressEarly    = i16(value); }
+    else if (name == "breakstrength")  { v.BreakStrength  = i16(value); }
+    else if (name == "emphasisboost")  { v.EmphasisBoost  = i16(value); }
+    else if (name == "vocalconfidence"){ v.VocalConfidence= i16(value); }
+    else if (name == "vibratodepth1")  { v.VibratoDepth1Raw = i16(value); }
+    else if (name == "vibratodepth2")  { v.VibratoDepth2Raw = i16(value); }
+    else if (name == "vibratofreq")    { v.VibratoFreqRaw = i16(value); }
+    else if (name == "rvbdelay")       { v.RvbDelay       = i16(value); }
+    else if (name == "rvbdepth")       { v.RvbDepth       = i16(value); }
+    else return false;
+    return true;
+}
+
 } // namespace SharpVox

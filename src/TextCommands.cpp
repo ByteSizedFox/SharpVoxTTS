@@ -192,6 +192,27 @@ std::vector<EmbeddedCmd::Segment> EmbeddedCmd::ParseSegments(const std::string& 
                 } else if (argStr == "off") {
                     KlattschMode = false;
                 }
+            } else if (cmd == "custom") {
+                FlushPlain();
+                VoiceCommand vc;
+                vc.Type = VoiceCommand::Kind::Custom;
+                const char* p = argStr.c_str();
+                while (*p) {
+                    while (*p && std::isspace(static_cast<unsigned char>(*p))) p++;
+                    if (!*p) break;
+                    const char* ns = p;
+                    while (*p && !std::isspace(static_cast<unsigned char>(*p))) p++;
+                    std::string pname(ns, p - ns);
+                    while (*p && std::isspace(static_cast<unsigned char>(*p))) p++;
+                    if (!*p) break;
+                    char* end;
+                    float val = static_cast<float>(std::strtod(p, &end));
+                    if (end == p) break;
+                    p = end;
+                    vc.Params.emplace_back(std::move(pname), val);
+                }
+                if (!vc.Params.empty())
+                    segments.push_back(Segment(std::move(vc)));
             } else if (cmd == "voice") {
                 FlushPlain();
                 segments.push_back(Segment(VoiceCommand(VoiceCommand::Kind::Voice, argStr)));

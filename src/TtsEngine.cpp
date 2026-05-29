@@ -311,6 +311,16 @@ namespace SharpVox {
                     KlattschParser::Reset(_voice);
                 }
                 break;
+            case EmbeddedCmd::VoiceCommand::Kind::Custom: {
+                bool changed = false;
+                for (const auto& p : cmd.Params)
+                    changed |= VoicePresets::SetParam(_voice, p.first, p.second);
+                if (changed) {
+                    RebuildPipeline();
+                    KlattschParser::Reset(_voice);
+                }
+                break;
+            }
         }
     }
 

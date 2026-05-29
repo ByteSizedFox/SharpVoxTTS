@@ -13,10 +13,11 @@ struct PhonemeToken;
 class EmbeddedCmd {
 public:
     struct VoiceCommand {
-        enum class Kind { Rate, Pitch, Volume, Voice };
+        enum class Kind { Rate, Pitch, Volume, Voice, Custom };
         Kind Type;
         int32_t Value;
         std::string VoiceName;
+        std::vector<std::pair<std::string, float>> Params; // for Custom
         VoiceCommand() : Type(Kind::Rate), Value(0) {}
         VoiceCommand(Kind type, int32_t value) : Type(type), Value(value) {}
         VoiceCommand(Kind type, std::string name) : Type(type), Value(0), VoiceName(std::move(name)) {}
