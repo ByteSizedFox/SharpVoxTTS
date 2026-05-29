@@ -1,4 +1,5 @@
 #include "../include/KlattschParser.h"
+#include "../include/VoiceData.h"
 
 #include <algorithm>
 #include <cassert>
@@ -133,6 +134,19 @@ void KlattschParser::Reset() {
     _curTremRate  = 5.0f;
     _curAsp       = 0.0f;
     _curTilt      = 0.0f;
+    _curEffort    = 0.5f;
+}
+
+void KlattschParser::Reset(const VoiceData& v) {
+    _curF0        = (float)v.PitchHz;
+    _curRate      = (float)v.Rate;
+    _curScale     = v.TractScale;
+    _curVibDepth  = (float)v.TremoloDepth;
+    _curVibRate   = (float)v.TremoloRate / 10.0f;
+    _curTremDepth = 0.0f;
+    _curTremRate  = 5.0f;
+    _curAsp       = (float)v.AGain / 100.0f;
+    _curTilt      = 0.0f; // mapped by klattsch directives if present
     _curEffort    = 0.5f;
 }
 
@@ -672,7 +686,6 @@ void KlattschParser::FlushSyllable(std::vector<Token>& syllableQueue,
 // Pauses and p-directives emit SIL tokens with exact millisecond durations.
 // A trailing SIL with AudioProcessor::kTerm_End is always appended so AudioProcessor sees a clean clause end.
 std::vector<PhonemeToken> KlattschParser::CompileToTokens(const std::vector<Token>& tokens) {
-    Reset();
     std::vector<PhonemeToken> result;
     bool inSyllable = false;
     std::vector<Token> syllableQueue;

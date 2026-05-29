@@ -8,6 +8,7 @@
 #include "../include/VoiceData.h"
 #include "../include/SynthData.h"
 #include "../include/PitchInterpolator.h"
+#include "../include/VoicePresets.h"
 #include <algorithm>
 #include <cmath>
 #include <cstring>
@@ -141,6 +142,7 @@ namespace SharpVox {
             onBuffer(buf, len, userdata);
         };
         EmbeddedCmd::KlattschMode = false;
+        KlattschParser::Reset(_voice);
         for (const auto& seg : EmbeddedCmd::ParseSegments(text)) {
             if (seg.IsCommand()) {
                 ApplyCommand(seg.cmd);
@@ -202,10 +204,16 @@ namespace SharpVox {
             onBuffer(buf, len, userdata);
         };
 
+        struct WorkItem {
+            SynthInputDump dump;
+            VoiceData voice;
+        };
+
         std::vector<PhonemeEvent> events;
-        std::vector<SynthInputDump> workItems;
+        std::vector<WorkItem> workItems;
         int32_t sampleOffset = 0;
         EmbeddedCmd::KlattschMode = false;
+        KlattschParser::Reset(_voice);
 
         for (const auto& seg : EmbeddedCmd::ParseSegments(text)) {
             if (seg.IsCommand()) {
@@ -230,7 +238,7 @@ namespace SharpVox {
                     frameOff += dump.DurBuf[i];
                 }
                 sampleOffset += frameOff * _synth.SampFrameLen;
-                workItems.push_back(std::move(dump));
+                workItems.push_back({std::move(dump), _voice});
                 continue;
             }
 
@@ -247,7 +255,7 @@ namespace SharpVox {
                     frameOff += dump.DurBuf[i];
                 }
                 sampleOffset += frameOff * _synth.SampFrameLen;
-                workItems.push_back(std::move(dump));
+                workItems.push_back({std::move(dump), _voice});
                 continue;
             }
 
@@ -267,14 +275,16 @@ namespace SharpVox {
                     frameOff += dump.DurBuf[i];
                 }
                 sampleOffset += frameOff * _synth.SampFrameLen;
-                workItems.push_back(std::move(dump));
+                workItems.push_back({std::move(dump), _voice});
             }
         }
 
         onEventsReady(events.data(), (int32_t)events.size(), userdata);
 
-        for (const auto& dump : workItems) {
-            ProcessSentenceStreamingFromDump(dump, cb);
+        for (const auto& item : workItems) {
+            _voice = item.voice;
+            RebuildPipeline();
+            ProcessSentenceStreamingFromDump(item.dump, cb);
         }
     }
 
@@ -283,14 +293,23 @@ namespace SharpVox {
             case EmbeddedCmd::VoiceCommand::Kind::Rate:
                 _voice.Rate = (int16_t)clamp11<int32_t>(cmd.Value, 40, 600);
                 _be = AudioProcessor(_voice);
+                KlattschParser::Reset(_voice);
                 break;
             case EmbeddedCmd::VoiceCommand::Kind::Pitch:
                 _voice.PitchHz = (int16_t)clamp11<int32_t>(cmd.Value, 40, 500);
                 _be = AudioProcessor(_voice);
+                _synth.BasePitchHz = _voice.PitchHz;
+                KlattschParser::Reset(_voice);
                 break;
             case EmbeddedCmd::VoiceCommand::Kind::Volume:
                 _voice.VGain = (int16_t)clamp11<int32_t>(cmd.Value, 0, 100);
                 _synth.InvDFT(_voice.VWave, _voice.VWave1, (int16_t)_voice.VGain);
+                break;
+            case EmbeddedCmd::VoiceCommand::Kind::Voice:
+                if (VoicePresets::TryGet(cmd.VoiceName, _voice)) {
+                    RebuildPipeline();
+                    KlattschParser::Reset(_voice);
+                }
                 break;
         }
     }

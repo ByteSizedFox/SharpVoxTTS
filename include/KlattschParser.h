@@ -47,6 +47,7 @@ public:
 
     // Reset persistent Klattsch state to defaults.
     static void Reset();
+    static void Reset(const struct VoiceData& voice);
 
     // Mapping from SharpVox phoneme ID -> Klattsch uppercase code (e.g. _IY_ -> "IY").
     static const std::unordered_map<int16_t, std::string>& GetPhonemeNamesTable();

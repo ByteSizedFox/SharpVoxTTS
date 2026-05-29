@@ -13,11 +13,13 @@ struct PhonemeToken;
 class EmbeddedCmd {
 public:
     struct VoiceCommand {
-        enum class Kind { Rate, Pitch, Volume };
+        enum class Kind { Rate, Pitch, Volume, Voice };
         Kind Type;
         int32_t Value;
+        std::string VoiceName;
         VoiceCommand() : Type(Kind::Rate), Value(0) {}
         VoiceCommand(Kind type, int32_t value) : Type(type), Value(value) {}
+        VoiceCommand(Kind type, std::string name) : Type(type), Value(0), VoiceName(std::move(name)) {}
     };
 
     // Discriminated union for a parsed text segment.

@@ -19,7 +19,8 @@ LIB_SRCS := \
     src/Morphology.cpp \
     src/HeteronymResolver.cpp \
     src/TextCommands.cpp \
-    src/KlattschParser.cpp
+    src/KlattschParser.cpp \
+    src/VoicePresets.cpp
 
 LIB_OBJS := $(LIB_SRCS:.cpp=.o)
 

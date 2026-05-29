@@ -128,41 +128,9 @@ int16_t EmbeddedCmd::MapPhoneme(const std::string& p) {
 }
 
 // Parse text into a list of Segments, handling [:rate N], [:pitch N],
-// [:sing], [:talk], [:klattsch on/off], and [phoneme<dur,note> ...] singing blocks.
+// [:voice NAME], [:sing], [:talk], [:klattsch on/off], and [phoneme<dur,note> ...] singing blocks.
 std::vector<EmbeddedCmd::Segment> EmbeddedCmd::ParseSegments(const std::string& text) {
     std::vector<Segment> segments;
-
-    if (KlattschMode) {
-        // In Klattsch mode, we still look for [:klattsch off]
-        static const std::string kKlattschOff = "[:klattsch off]";
-        // Case-insensitive search
-        std::string lower = text;
-        std::transform(lower.begin(), lower.end(), lower.begin(),
-            [](unsigned char c){ return static_cast<char>(std::tolower(c)); });
-        auto pos = lower.find("[:klattsch off]");
-        if (pos != std::string::npos) {
-            std::string before = text.substr(0, pos);
-            if (!before.empty()) {
-                segments.push_back(Segment::Klattsch(before));
-            }
-            KlattschMode = false;
-            std::string after = text.substr(pos + kKlattschOff.size());
-            if (!after.empty()) {
-                auto sub = ParseSegments(after);
-                segments.insert(segments.end(), sub.begin(), sub.end());
-            }
-            return segments;
-        }
-        segments.push_back(Segment::Klattsch(text));
-        return segments;
-    }
-
-    if (text.find('[') == std::string::npos) {
-        if (!text.empty()) {
-            segments.push_back(Segment(text));
-        }
-        return segments;
-    }
 
     std::string plain;
     bool inSingMode = false;
@@ -171,7 +139,11 @@ std::vector<EmbeddedCmd::Segment> EmbeddedCmd::ParseSegments(const std::string& 
 
     auto FlushPlain = [&]() {
         if (!plain.empty()) {
-            segments.push_back(Segment(plain));
+            if (KlattschMode) {
+                segments.push_back(Segment::Klattsch(plain));
+            } else {
+                segments.push_back(Segment(plain));
+            }
             plain.clear();
         }
     };
@@ -182,13 +154,9 @@ std::vector<EmbeddedCmd::Segment> EmbeddedCmd::ParseSegments(const std::string& 
             continue;
         }
 
-        i++; // consume '['
-        if (i >= len) {
-            break;
-        }
-
-        if (text[i] == ':') {
-            i++; // Skip ':'
+        // Found a '['. Check if it's a command '[:' or a singing block.
+        if (i + 1 < len && text[i + 1] == ':') {
+            i += 2; // consume '[:'
             int32_t cmdStart = i;
             while (i < len && !std::isspace(static_cast<unsigned char>(text[i])) && text[i] != ']') {
                 i++;
@@ -217,17 +185,16 @@ std::vector<EmbeddedCmd::Segment> EmbeddedCmd::ParseSegments(const std::string& 
             }
 
             if (cmd == "klattsch") {
+                FlushPlain();
                 if (argStr == "on") {
-                    FlushPlain();
                     KlattschMode = true;
                     KlattschParser::Reset();
-                    std::string rest = text.substr(i);
-                    auto sub = ParseSegments(rest);
-                    segments.insert(segments.end(), sub.begin(), sub.end());
-                    return segments;
                 } else if (argStr == "off") {
                     KlattschMode = false;
                 }
+            } else if (cmd == "voice") {
+                FlushPlain();
+                segments.push_back(Segment(VoiceCommand(VoiceCommand::Kind::Voice, argStr)));
             } else if (cmd == "sing") {
                 inSingMode = true;
             } else if (cmd == "talk" || cmd == "stop") {
@@ -261,7 +228,14 @@ std::vector<EmbeddedCmd::Segment> EmbeddedCmd::ParseSegments(const std::string& 
             continue;
         }
 
+        if (KlattschMode) {
+            // In Klattsch mode, '[' is literal if not followed by ':'
+            plain += text[i++];
+            continue;
+        }
+
         // Phoneme block [phoneme<dur,note> ...]
+        i++; // consume '['
         std::vector<PhonemeToken> blockSing;
         bool firstPhon = true;
         bool firstInBlock = true; // Track first note in the [...] block

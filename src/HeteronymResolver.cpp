@@ -39,7 +39,7 @@ namespace SharpVox {
         Rule(std::initializer_list<const char*> before,
              std::initializer_list<const char*> after,
              std::vector<uint8_t> ph)
-            : hasBefore(!before.size() == 0), hasAfter(!after.size() == 0), Phonemes(std::move(ph))
+            : hasBefore(before.size() != 0), hasAfter(after.size() != 0), Phonemes(std::move(ph))
         {
             for (const char* s : before) { Before.insert(s); hasBefore = true; }
             for (const char* s : after)  { After.insert(s);  hasAfter  = true; }
