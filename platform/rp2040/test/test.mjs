@@ -108,9 +108,9 @@ function finish() {
     wav.writeUInt32LE(audioRate, 24);
     wav.writeUInt32LE(audioRate * 2, 28);
     wav.writeUInt16LE(2,  32);          // block align
-    wav.writeUInt16LE(16, 36);          // bits per sample
-    wav.write('data', 38);
-    wav.writeUInt32LE(dataBytes, 42);
+    wav.writeUInt16LE(16, 34);          // bits per sample
+    wav.write('data', 36);
+    wav.writeUInt32LE(dataBytes, 40);
     pcmBuf.copy(wav, 44);
     writeFileSync('output.wav', wav);
 
