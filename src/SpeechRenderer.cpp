@@ -39,9 +39,9 @@ SpeechRenderer::SpeechRenderer(const VoiceData& voice)
     _voiceBWgain2     = (voice.BwGain2 << 16) / 100;
     _voiceBWgain3     = (voice.BwGain3 << 16) / 100;
     _tractScale       = voice.TractScale > 0 ? voice.TractScale : 1.0f;
-    _voiceTremDepth   = (uint8_t)clamp11((int32_t)voice.TremoloDepth,  0, 100);
-    _voiceTremRate    = (uint8_t)clamp11((int32_t)voice.TremoloRate,   0, 200);
-    _voiceOnsetHardness = clamp11((int32_t)voice.OnsetHardness, 0, 100);
+    _voiceTremDepth   = (uint8_t)clamp11<int32_t>(voice.TremoloDepth,  0, 100);
+    _voiceTremRate    = (uint8_t)clamp11<int32_t>(voice.TremoloRate,   0, 200);
+    _voiceOnsetHardness = clamp11<int32_t>(voice.OnsetHardness, 0, 100);
     // Seed tremolo state so it is active from the very first frame
     _curKlattsch[kTremDIdx] = _voiceTremDepth << 16;
     _curKlattsch[kTremRIdx] = _voiceTremRate  << 16;

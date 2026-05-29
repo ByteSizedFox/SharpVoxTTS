@@ -281,15 +281,15 @@ namespace SharpVox {
     void TtsEngine::ApplyCommand(const EmbeddedCmd::VoiceCommand& cmd) {
         switch (cmd.Type) {
             case EmbeddedCmd::VoiceCommand::Kind::Rate:
-                _voice.Rate = (int16_t)clamp11(cmd.Value, 40, 600);
+                _voice.Rate = (int16_t)clamp11<int32_t>(cmd.Value, 40, 600);
                 _be = AudioProcessor(_voice);
                 break;
             case EmbeddedCmd::VoiceCommand::Kind::Pitch:
-                _voice.PitchHz = (int16_t)clamp11(cmd.Value, 40, 500);
+                _voice.PitchHz = (int16_t)clamp11<int32_t>(cmd.Value, 40, 500);
                 _be = AudioProcessor(_voice);
                 break;
             case EmbeddedCmd::VoiceCommand::Kind::Volume:
-                _voice.VGain = (int16_t)clamp11(cmd.Value, 0, 100);
+                _voice.VGain = (int16_t)clamp11<int32_t>(cmd.Value, 0, 100);
                 _synth.InvDFT(_voice.VWave, _voice.VWave1, (int16_t)_voice.VGain);
                 break;
         }
@@ -301,11 +301,11 @@ namespace SharpVox {
         _synth = KlattSynthesizer(SampleRate);
         int16_t lo = _voice.LarynxOffset;
         _synth.SetVoice(_voice.NGain, true,
-            (int16_t)clamp11((int32_t)(_voice.F4Freq + lo),  100, 8000), _voice.F4BW,
-            (int16_t)clamp11((int32_t)(_voice.F5Freq + lo),  100, 8000), _voice.F5BW,
-            (int16_t)clamp11((int32_t)(_voice.F4pFreq + lo), 100, 8000), _voice.F4pBW,
-            (int16_t)clamp11((int32_t)(_voice.F5pFreq + lo), 100, 8000), _voice.F5pBW,
-            (int16_t)clamp11((int32_t)(_voice.F6pFreq + lo), 100, 8000), _voice.F6pBW,
+            (int16_t)clamp11<int32_t>(_voice.F4Freq + lo,  100, 8000), _voice.F4BW,
+            (int16_t)clamp11<int32_t>(_voice.F5Freq + lo,  100, 8000), _voice.F5BW,
+            (int16_t)clamp11<int32_t>(_voice.F4pFreq + lo, 100, 8000), _voice.F4pBW,
+            (int16_t)clamp11<int32_t>(_voice.F5pFreq + lo, 100, 8000), _voice.F5pBW,
+            (int16_t)clamp11<int32_t>(_voice.F6pFreq + lo, 100, 8000), _voice.F6pBW,
             _voice.NasalBase, _voice.NasalBW,
             _voice.AGain, _voice.ACycle);
         _synth.Jitter          = _voice.Jitter;

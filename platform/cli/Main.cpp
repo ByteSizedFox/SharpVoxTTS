@@ -344,13 +344,7 @@ int main(int argc, char* argv[]) {
             LibraryData::dictionary,
             static_cast<size_t>(LibraryData::dictionarySize),
             [](const std::string& key, size_t& outSize) -> const uint8_t* {
-                auto it = LibraryData::SymbolsTable.find(key);
-                if (it == LibraryData::SymbolsTable.end()) {
-                    outSize = 0;
-                    return nullptr;
-                }
-                outSize = it->second.size();
-                return it->second.data();
+                return LibraryData::FindSymbol(key.c_str(), outSize);
             },
             sampleRate);
     } catch (const std::invalid_argument& ex) {

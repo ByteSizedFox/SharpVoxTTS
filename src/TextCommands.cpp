@@ -402,7 +402,7 @@ std::vector<EmbeddedCmd::Segment> EmbeddedCmd::ParseSegments(const std::string& 
                     int32_t m = (p == AudioProcessor::_SIL_) ? 5 : Tables::GetMinimumDuration(p);
                     overhead += (m / 5) * 5;
                 }
-                int32_t adjustedDur = std::max(5, dur - overhead);
+                int32_t adjustedDur = std::max((int32_t)5, (int32_t)(dur - overhead));
 
                 for (int32_t gi = 0; gi < static_cast<int32_t>(group.size()); gi++) {
                     int64_t ctrl = AudioProcessor::kWord_Start | AudioProcessor::kContent_Word;

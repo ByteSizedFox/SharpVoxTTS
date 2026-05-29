@@ -1259,7 +1259,7 @@ namespace SharpVox {
                     if (curPhon != _SIL_ && d < 8 / kFrameTime) {
                         d = 8 / kFrameTime;
                     }
-                    _durBuf[i] = (int16_t)std::max(d, 1);
+                    _durBuf[i] = (int16_t)std::max(d, (int32_t)1);
                     goto DURATION_DONE_END;
                 }
             }
@@ -1495,7 +1495,7 @@ namespace SharpVox {
                 if (curPhon != _SIL_ && d < 8 / kFrameTime) {
                     d = 1;
                 }
-                _durBuf[i] = (int16_t)std::max(d, 1);
+                _durBuf[i] = (int16_t)std::max(d, (int32_t)1);
             }
 
         DURATION_DONE_END:;
@@ -1956,7 +1956,7 @@ namespace SharpVox {
         }
 
         for (int32_t i = start; i <= end; i++) {
-            _durBuf[i] = (int16_t)std::max(1, (_durBuf[i] * pct + 50) / 100);
+            _durBuf[i] = (int16_t)std::max((int32_t)1, (_durBuf[i] * pct + 50) / 100);
         }
     }
 

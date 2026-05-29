@@ -249,8 +249,8 @@ namespace SharpVox {
             : formant == 2 ? -PharyngealAmt * 2 - (LipRounding * 3)
             : formant == 3 ? -LipRounding
             : 0;
-        hz = std::max(hz, 50);
-        hz = std::min(hz, 8000);
+        hz = std::max(hz, (int32_t)50);
+        hz = std::min(hz, (int32_t)8000);
         return HzToPitch((int16_t)hz);
     }
 
@@ -463,7 +463,7 @@ namespace SharpVox {
                             }
                             // Vocal fry: park at closed phase for a random fraction of the current period.
                             if (FryAmount > 0 && (NextNoise() & 0xFF) < FryAmount) {
-                                int32_t period = _glotPhaseInc > 0 ? std::min((1 << 24) / _glotPhaseInc, 1500) : 200;
+                                int32_t period = _glotPhaseInc > 0 ? std::min((1 << 24) / _glotPhaseInc, (int32_t)1500) : (int32_t)200;
                                 _fryStallSamples = (NextNoise() * period) >> 8;
                                 if (_fryStallSamples > 0) {
                                     _glotPhase = 0;

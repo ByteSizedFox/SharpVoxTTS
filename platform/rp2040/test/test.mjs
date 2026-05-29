@@ -1,0 +1,131 @@
+// rp2040js simulation test for the SharpVox RP2040 demo.
+// Usage: node test.mjs [text to speak] [path/to/sharptalk_demo.uf2]
+//
+// Defaults: "Hello world."  ../build/sharptalk_demo.uf2
+// Output:   output.wav in the current directory
+
+import { readFileSync, writeFileSync, existsSync } from 'fs';
+import { Simulator } from '/home/user/rp2040js/dist/esm/simulator.js';
+import { bootromB1 } from '/home/user/rp2040js/dist/demo/demo/bootrom.js';
+import { loadUF2 } from '/home/user/rp2040js/dist/demo/demo/load-flash.js';
+
+const testText = process.argv[2] ?? 'Hello world.';
+const uf2Path  = process.argv[3] ?? new URL('../build/sharptalk_demo.uf2', import.meta.url).pathname;
+const TIMEOUT_MS = 120_000;   // 2 min — simulation is slow
+
+if (!existsSync(uf2Path)) {
+    console.error(`UF2 not found: ${uf2Path}`);
+    console.error('Build first:');
+    console.error('  cd platform/rp2040 && mkdir -p build && cd build');
+    console.error('  PICO_SDK_PATH=~/pico-sdk cmake .. -DPICO_BOARD=pico');
+    console.error('  make -j$(nproc)');
+    process.exit(1);
+}
+
+console.error(`Loading firmware: ${uf2Path}`);
+console.error(`Test input:       "${testText}"`);
+
+// --- simulator setup ---------------------------------------------------------
+const sim = new Simulator();
+sim.rp2040.loadBootrom(bootromB1);
+loadUF2(uf2Path, sim.rp2040);
+sim.rp2040.core.PC = 0x10000000;   // skip to flash (boot stage 2 → app)
+
+// --- UART state machine ------------------------------------------------------
+// Protocol produced by main.cpp:
+//   "SHVX READY\r\n"
+//   "SHVX AUDIO <rate> <count>\r\n"
+//   <count × 2 bytes of little-endian int16 PCM>
+//   "SHVX END\r\n"
+
+let state = 'waitReady'; // waitReady | waitAudio | readPCM | waitEnd
+let rxLine = '';
+let pcmBuf = null;
+let pcmIdx = 0;
+let audioRate = 0;
+let audioSamples = 0;
+
+sim.rp2040.uart[0].onByte = (byte) => {
+    if (state === 'readPCM') {
+        pcmBuf[pcmIdx++] = byte;
+        if (pcmIdx >= pcmBuf.length) {
+            state = 'waitEnd';
+            rxLine = '';
+        }
+        return;
+    }
+
+    if (byte === 0x0a /* '\n' */) {
+        processLine(rxLine.replace(/\r$/, ''));
+        rxLine = '';
+    } else {
+        rxLine += String.fromCharCode(byte);
+    }
+};
+
+function processLine(line) {
+    if (state === 'waitReady' && line === 'SHVX READY') {
+        console.error('RP2040 ready — sending text...');
+        state = 'waitAudio';
+        for (const ch of testText + '\n') {
+            sim.rp2040.uart[0].feedByte(ch.charCodeAt(0));
+        }
+        return;
+    }
+
+    if (state === 'waitAudio' && line.startsWith('SHVX AUDIO ')) {
+        const parts = line.split(' ');
+        audioRate    = parseInt(parts[2], 10);
+        audioSamples = parseInt(parts[3], 10);
+        console.error(`Audio header: ${audioRate} Hz, ${audioSamples} samples ` +
+                      `(${(audioSamples / audioRate).toFixed(2)} s)`);
+        pcmBuf = Buffer.alloc(audioSamples * 2);
+        pcmIdx = 0;
+        state  = 'readPCM';
+        return;
+    }
+
+    if (state === 'waitEnd' && line === 'SHVX END') {
+        finish();
+        return;
+    }
+}
+
+function finish() {
+    clearTimeout(timeout);
+    sim.stop();
+
+    // Write WAV
+    const dataBytes = pcmBuf.length;
+    const wav = Buffer.alloc(44 + dataBytes);
+    wav.write('RIFF', 0);
+    wav.writeUInt32LE(36 + dataBytes, 4);
+    wav.write('WAVE', 8);
+    wav.write('fmt ', 12);
+    wav.writeUInt32LE(16, 16);
+    wav.writeUInt16LE(1,  20);          // PCM
+    wav.writeUInt16LE(1,  22);          // mono
+    wav.writeUInt32LE(audioRate, 24);
+    wav.writeUInt32LE(audioRate * 2, 28);
+    wav.writeUInt16LE(2,  32);          // block align
+    wav.writeUInt16LE(16, 36);          // bits per sample
+    wav.write('data', 38);
+    wav.writeUInt32LE(dataBytes, 42);
+    pcmBuf.copy(wav, 44);
+    writeFileSync('output.wav', wav);
+
+    console.error(`Written output.wav — ${(dataBytes / 1024).toFixed(1)} KB`);
+    console.log('PASS');
+    process.exit(0);
+}
+
+const timeout = setTimeout(() => {
+    console.error(`TIMEOUT after ${TIMEOUT_MS / 1000}s — state: ${state}`);
+    process.exit(1);
+}, TIMEOUT_MS);
+
+// Keep Node alive during async simulate loop
+timeout.unref();
+
+console.error('Starting simulation (this will take a while in software)...');
+sim.execute();

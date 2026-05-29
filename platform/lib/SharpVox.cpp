@@ -10,13 +10,7 @@ namespace SharpVox {
 
 static std::function<const uint8_t*(const std::string&, size_t&)> MakeSymbolsLookup() {
     return [](const std::string& key, size_t& outSize) -> const uint8_t* {
-        auto it = LibraryData::SymbolsTable.find(key);
-        if (it != LibraryData::SymbolsTable.end()) {
-            outSize = it->second.size();
-            return it->second.data();
-        }
-        outSize = 0;
-        return nullptr;
+        return LibraryData::FindSymbol(key.c_str(), outSize);
     };
 }
 
