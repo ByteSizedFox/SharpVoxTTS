@@ -486,6 +486,81 @@ public:
         js_download_file("voice.json", sb.c_str());
     }
 
+    std::string GetCustomString() {
+        VoiceData def;
+        std::string s = "[:custom";
+
+        auto addI = [&](const char* name, int32_t cur, int32_t defVal) {
+            if (cur != defVal) {
+                char tmp[64];
+                std::snprintf(tmp, sizeof(tmp), " %s %d", name, cur);
+                s += tmp;
+            }
+        };
+        auto addF = [&](const char* name, float cur, float defVal) {
+            if (cur != defVal) {
+                char tmp[80];
+                std::snprintf(tmp, sizeof(tmp), " %s %g", name, (double)cur);
+                s += tmp;
+            }
+        };
+
+        addI("pitch",           _speaker.PitchHz,                   (int32_t)def.PitchHz);
+        addI("rate",            _speaker.Rate,                      (int32_t)def.Rate);
+        addI("voicetype",       _speaker.GetFemale() ? 1 : 0,       (int32_t)def.VoiceType);
+        addF("tract",           _speaker.GetTractScale(),           def.TractScale);
+        addI("vgain",           _speaker.GetVoicingGain(),          (int32_t)def.VGain);
+        addI("again",           _speaker.GetAspirationGain(),       (int32_t)def.AGain);
+        addI("acycle",          _speaker.GetAspirationCycle(),      (int32_t)def.ACycle);
+        addI("tremolodepth",    _speaker.GetTremoloDepth(),         (int32_t)def.TremoloDepth);
+        addI("tremolorate",     _speaker.GetTremoloRate(),          (int32_t)def.TremoloRate);
+        addI("jitter",          _speaker.GetJitter(),               (int32_t)def.Jitter);
+        addI("shimmer",         _speaker.GetShimmer(),              (int32_t)def.Shimmer);
+        addI("diplophonia",     _speaker.GetDiplophonia(),          (int32_t)def.Diplophonia);
+        addI("fry",             _speaker.GetFryAmount(),            (int32_t)def.FryAmount);
+        addI("subglottal",      _speaker.GetSubglottalAmt(),        (int32_t)def.SubglottalAmt);
+        addI("breath",          _speaker.GetBreathAmt(),            (int32_t)def.BreathAmt);
+        addI("oq",              _speaker.GetOpenQuotient(),         (int32_t)def.OpenQuotient);
+        addI("oqstresslink",    _speaker.GetOQStressLink(),         (int32_t)def.OQStressLink);
+        addI("oqf0link",        _speaker.GetOQF0Link(),             (int32_t)def.OQF0Link);
+        addI("larynx",          _speaker.GetLarynxOffset(),         (int32_t)def.LarynxOffset);
+        addI("pharyngeal",      _speaker.GetPharyngealAmt(),        (int32_t)def.PharyngealAmt);
+        addI("pitchoffset",     _speaker.GetPitchOffsetHz(),        (int32_t)def.PitchOffsetHz);
+        addI("liprounding",     _speaker.GetLipRounding(),          (int32_t)def.LipRounding);
+        addI("onset",           _speaker.GetOnsetHardness(),        (int32_t)def.OnsetHardness);
+        addI("f4freq",          _speaker.GetF4Freq(),               (int32_t)def.F4Freq);
+        addI("f4bw",            _speaker.GetF4BW(),                 (int32_t)def.F4BW);
+        addI("f5freq",          _speaker.GetF5Freq(),               (int32_t)def.F5Freq);
+        addI("f5bw",            _speaker.GetF5BW(),                 (int32_t)def.F5BW);
+        addI("f4pfreq",         _speaker.GetF4pFreq(),              (int32_t)def.F4pFreq);
+        addI("f4pbw",           _speaker.GetF4pBW(),                (int32_t)def.F4pBW);
+        addI("f5pfreq",         _speaker.GetF5pFreq(),              (int32_t)def.F5pFreq);
+        addI("f5pbw",           _speaker.GetF5pBW(),                (int32_t)def.F5pBW);
+        addI("f6pfreq",         _speaker.GetF6pFreq(),              (int32_t)def.F6pFreq);
+        addI("f6pbw",           _speaker.GetF6pBW(),                (int32_t)def.F6pBW);
+        addI("nasalbase",       _speaker.GetNasalBase(),            (int32_t)def.NasalBase);
+        addI("nasaltarg",       _speaker.GetNasalTarg(),            (int32_t)def.NasalTarg);
+        addI("nasalbw",         _speaker.GetNasalBW(),              (int32_t)def.NasalBW);
+        addI("ngain",           _speaker.GetNGain(),                (int32_t)def.NGain);
+        addI("bwgain1",         _speaker.GetBwGain1(),              (int32_t)def.BwGain1);
+        addI("bwgain2",         _speaker.GetBwGain2(),              (int32_t)def.BwGain2);
+        addI("bwgain3",         _speaker.GetBwGain3(),              (int32_t)def.BwGain3);
+        addI("pitchrange",      _speaker.GetPitchRange(),           (int32_t)def.PitchRange);
+        addI("stressgain",      _speaker.GetStressGain(),           (int32_t)def.StressGain);
+        addI("intonation",      _speaker.GetIntonation(),           (int32_t)def.Intonation);
+        addI("riseamt",         _speaker.GetRiseAmt(),              (int32_t)def.RiseAmt);
+        addI("fallamt",         _speaker.GetFallAmt(),              (int32_t)def.FallAmt);
+        addI("baselinefall",    _speaker.GetBaselineFall(),         (int32_t)def.BaselineFall);
+        addI("uptalk",          _speaker.GetUptalkAmt(),            (int32_t)def.UptalkAmt);
+        addI("stressearly",     _speaker.GetStressEarly(),          (int32_t)def.StressEarly);
+        addI("breakstrength",   _speaker.GetBreakStrength(),        (int32_t)def.BreakStrength);
+        addI("emphasisboost",   _speaker.GetEmphasisBoost(),        (int32_t)def.EmphasisBoost);
+        addI("vocalconfidence", _speaker.GetVocalConfidence(),      (int32_t)def.VocalConfidence);
+
+        s += "]";
+        return s;
+    }
+
     void HandleImport(const std::string& json) {
         if (json.empty()) return;
         try {
@@ -692,6 +767,7 @@ EMSCRIPTEN_BINDINGS(sharpvox_interop) {
         .function("DownloadWav",     &SharpVoxInterop::DownloadWav)
         .function("OnPresetChange",  &SharpVoxInterop::OnPresetChange)
         .function("ExportPreset",    &SharpVoxInterop::ExportPreset)
+        .function("GetCustomString", &SharpVoxInterop::GetCustomString)
         .function("HandleImport",    &SharpVoxInterop::HandleImport)
         .function("ConvertUst",      &SharpVoxInterop::ConvertUst)
         .function("ExportVideo",     &SharpVoxInterop::ExportVideo);

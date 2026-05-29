@@ -229,6 +229,16 @@ window.ui = {
         window.ui.triggerFileInput('importFile');
     },
 
+    copyCustomString: () => {
+        const str = window.sharpVox?.GetCustomString();
+        if (!str) return;
+        navigator.clipboard.writeText(str).then(() => {
+            window.ui.updateStatus('[:custom] copied to clipboard');
+        }).catch(() => {
+            prompt('Copy this [:custom] command:', str);
+        });
+    },
+
     handleImport: async () => {
         const json = await window.ui.readFileContent('importFile');
         if (json) {
