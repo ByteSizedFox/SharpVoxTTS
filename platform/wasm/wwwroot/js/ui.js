@@ -229,8 +229,8 @@ window.ui = {
         window.ui.triggerFileInput('importFile');
     },
 
-    copyCustomString: () => {
-        const str = window.sharpVox?.GetCustomString();
+    copyCustomString: async () => {
+        const str = await window.sharpVox?.GetCustomString();
         if (!str) return;
         navigator.clipboard.writeText(str).then(() => {
             window.ui.updateStatus('[:custom] copied to clipboard');

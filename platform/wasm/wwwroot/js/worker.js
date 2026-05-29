@@ -31,6 +31,9 @@ self.onmessage = ({ data }) => {
         case 'ExportPreset':
             instance.ExportPreset();
             break;
+        case 'GetCustomString':
+            self.postMessage({ type: 'customString', value: instance.GetCustomString() });
+            break;
         case 'DownloadWav':
             instance.DownloadWav(data.text);
             break;
