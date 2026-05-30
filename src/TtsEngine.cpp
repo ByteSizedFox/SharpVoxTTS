@@ -143,7 +143,12 @@ namespace SharpVox {
         };
         EmbeddedCmd::KlattschMode = false;
         KlattschParser::Reset(_voice);
-        for (const auto& seg : EmbeddedCmd::ParseSegments(text)) {
+        auto segments = EmbeddedCmd::ParseSegments(text);
+        size_t lastContent = segments.size();
+        for (size_t i = segments.size(); i-- > 0; )
+            if (!segments[i].IsCommand()) { lastContent = i; break; }
+        for (size_t si = 0; si < segments.size(); si++) {
+            const auto& seg = segments[si];
             if (seg.IsCommand()) {
                 ApplyCommand(seg.cmd);
                 continue;
@@ -160,8 +165,10 @@ namespace SharpVox {
                 ProcessSentenceStreamingFromDump(dump, cb);
                 continue;
             }
-            for (auto& p : _fe.TextToSentenceTokens(seg.plainText)) {
-                ProcessSentenceStreaming(p.first, p.second, cb);
+            auto sentences = _fe.TextToSentenceTokens(seg.plainText);
+            for (size_t j = 0; j < sentences.size(); j++) {
+                bool midUtterance = (si != lastContent) && (j == sentences.size() - 1);
+                ProcessSentenceStreaming(sentences[j].first, midUtterance ? 0 : sentences[j].second, cb);
             }
         }
     }
@@ -215,7 +222,11 @@ namespace SharpVox {
         EmbeddedCmd::KlattschMode = false;
         KlattschParser::Reset(_voice);
 
-        for (const auto& seg : EmbeddedCmd::ParseSegments(text)) {
+        auto segments = EmbeddedCmd::ParseSegments(text);
+        size_t lastContent = segments.size();
+        for (size_t i = segments.size(); i-- > 0; )
+            if (!segments[i].IsCommand()) { lastContent = i; break; }
+        for (size_t si = 0; si < segments.size(); si++) { const auto& seg = segments[si];
             if (seg.IsCommand()) {
                 ApplyCommand(seg.cmd);
                 continue;
@@ -259,9 +270,11 @@ namespace SharpVox {
                 continue;
             }
 
-            for (auto& p : _fe.TextToSentenceTokens(seg.plainText)) {
-                const std::vector<PhonemeToken>& tokens = p.first;
-                int16_t endPunct = p.second;
+            auto sentences = _fe.TextToSentenceTokens(seg.plainText);
+            for (size_t j = 0; j < sentences.size(); j++) {
+                const std::vector<PhonemeToken>& tokens = sentences[j].first;
+                bool midUtterance = (si != lastContent) && (j == sentences.size() - 1);
+                int16_t endPunct = midUtterance ? 0 : sentences[j].second;
                 auto dump = _be.Process(tokens, endPunct);
                 int32_t frameOff = 0;
                 for (int32_t i = 0; i < dump.PhonBuf2InIndex; i++) {
