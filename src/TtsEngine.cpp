@@ -167,8 +167,10 @@ namespace SharpVox {
             }
             auto sentences = _fe.TextToSentenceTokens(seg.plainText);
             for (size_t j = 0; j < sentences.size(); j++) {
-                bool midUtterance = (si != lastContent) && (j == sentences.size() - 1);
-                ProcessSentenceStreaming(sentences[j].first, midUtterance ? 0 : sentences[j].second, cb);
+                int16_t ep = sentences[j].second;
+                if (ep == 0 && si == lastContent && j == sentences.size() - 1)
+                    ep = AudioProcessor::_Period_;
+                ProcessSentenceStreaming(sentences[j].first, ep, cb);
             }
         }
     }
@@ -273,8 +275,9 @@ namespace SharpVox {
             auto sentences = _fe.TextToSentenceTokens(seg.plainText);
             for (size_t j = 0; j < sentences.size(); j++) {
                 const std::vector<PhonemeToken>& tokens = sentences[j].first;
-                bool midUtterance = (si != lastContent) && (j == sentences.size() - 1);
-                int16_t endPunct = midUtterance ? 0 : sentences[j].second;
+                int16_t endPunct = sentences[j].second;
+                if (endPunct == 0 && si == lastContent && j == sentences.size() - 1)
+                    endPunct = AudioProcessor::_Period_;
                 auto dump = _be.Process(tokens, endPunct);
                 int32_t frameOff = 0;
                 for (int32_t i = 0; i < dump.PhonBuf2InIndex; i++) {

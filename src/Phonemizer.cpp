@@ -1147,7 +1147,7 @@ namespace SharpVox {
     // Process a pure-text span (no embedded commands) into phoneme tokens.
     std::vector<PhonemeToken> Phonemizer::TextSegmentToPhonemes(const std::string& text) {
         std::vector<PhonemeToken> tokens;
-        LastEndPunct = AudioProcessor::_Period_;
+        LastEndPunct = 0;
 
         std::string normalized = Normalizer::Normalize(text);
         auto toks = TokenizeText(normalized);
