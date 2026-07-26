@@ -927,8 +927,9 @@ namespace SharpVox {
 
             // EL rule: AX/UH + L -> EL (syllabic L) in unstressed non-word-initial position.
             // "bottle" AX L -> EL; "petal" UH L -> EL.
+            // skip when L is followed by a vowel
             if (!isSinging && curPhon == _L_ && (curCtrl & (kPrimOrEmphStress | kWord_Initial_Consonant)) == 0) {
-                if (prevPhon == _AX_ || prevPhon == _UH_) {
+                if ((prevPhon == _AX_ || prevPhon == _UH_) && (nextFlags & kVowelF) == 0) {
                     _phonBuf2[_phonBuf2InIndex - 1] = _EL_;
                     delFwd = true;
                     goto STUFF_BUFF;
