@@ -753,9 +753,8 @@ namespace SharpVox {
         for (size_t i = 0; i < text.size(); i++) {
             char c = text[i];
             if (i > 0 && std::isupper((unsigned char)c)) {
-                char prev = text[i - 1];
                 bool nextLower = (i + 1 < text.size()) && std::islower((unsigned char)text[i + 1]);
-                if (std::islower((unsigned char)prev) || (std::isupper((unsigned char)prev) && nextLower)) {
+                if (nextLower) {
                     result += ' ';
                 }
             }
