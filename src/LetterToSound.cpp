@@ -172,7 +172,7 @@ static const char* const LTS_I[] = {
     "[I]%=IY",
     "[I]E=IY",
     "[I]^+#=IH",
-    "[I]#=AY R",
+    "[IR]#=AY R",
     "[IZ]%=AY Z",
     "[IS]%=AY Z",
     "[ID]%=AY D",
@@ -780,6 +780,106 @@ std::vector<uint8_t> LetterToSound::Convert(const std::string& word) {
     }
 
     return phons;
+}
+
+bool LetterToSound::IsVowelPhon(uint8_t p) {
+    // _IY_.._UR_ (0..22) are vocalic nuclei; _SIL_ = 23 and up are not.
+    return p <= 22;
+}
+
+bool LetterToSound::IsLongVowelPhon(uint8_t p) {
+    // Tense/long vowels per MITalk 6.3: ey iy ay ow uw oy aw (plus yu).
+    // r-colored vowels (er + ir/xr/ar/or/ur) are treated as heavy so a syllable
+    // built on them never counts as "weak". Everything else (ih eh ae ix ax ah
+    // aa ao uh) is short.
+    switch (p) {
+        case _IY_: case _EY_: case _AY_: case _OY_: case _AW_:
+        case _OW_: case _UW_: case _YU_:
+        case _ER_: case _IR_: case _XR_: case _AR_: case _OR_: case _UR_:
+            return true;
+        default:
+            return false;
+    }
+}
+
+void LetterToSound::BuildStressSyls(const std::vector<uint8_t>& phons, std::vector<StressSyl>& out) {
+    // A syllable is a vowel nucleus plus the consonants that follow it up to
+    // (not including) the next vowel. coda = that consonant count.
+    for (int i = 0; i < (int)phons.size(); i++) {
+        if (!IsVowelPhon(phons[i])) {
+            continue;
+        }
+        StressSyl s;
+        s.idx = i;
+        s.isLong = IsLongVowelPhon(phons[i]);
+        s.coda = 0;
+        for (int j = i + 1; j < (int)phons.size() && !IsVowelPhon(phons[j]); j++) {
+            s.coda++;
+        }
+        out.push_back(s);
+    }
+}
+
+int LetterToSound::MainStressSyl(const std::vector<StressSyl>& syls) {
+    int n = (int)syls.size();
+    if (n == 0) {
+        return -1;
+    }
+    if (n == 1) {
+        return 0;  // Rule 3 on a monosyllable: its only vowel.
+    }
+
+    const StressSyl& ult = syls[n - 1];
+    const StressSyl& pen = syls[n - 2];
+    // The ultima is "light" when it has a short vowel (any coda) or is an open
+    // final syllable (a bare morph-final vowel).
+    bool ultLight = !ult.isLong || ult.coda == 0;
+    // The penult qualifies for antepenult stress when it is a weak syllable
+    // (short vowel, at most one coda consonant) or an open syllable.
+    bool penWeakOrOpen = pen.coda == 0 || (!pen.isLong && pen.coda <= 1);
+
+    // Rule 1: antepenult stress (difficult, oregano, secretariat, oratorio).
+    if (n >= 3 && penWeakOrOpen && ultLight) {
+        return n - 3;
+    }
+    // Rule 2: penult stress (edit, agenda, bitumen).
+    if (ultLight) {
+        return n - 2;
+    }
+    // Rule 3: last-syllable stress (parole, cascade, stand).
+    return n - 1;
+}
+
+int LetterToSound::MainStressVowelIndex(const std::vector<uint8_t>& phons) {
+    std::vector<StressSyl> syls;
+    BuildStressSyls(phons, syls);
+    int m = MainStressSyl(syls);
+    return m < 0 ? -1 : syls[m].idx;
+}
+
+std::vector<uint8_t> LetterToSound::AssignStress(const std::vector<uint8_t>& phons) {
+    std::vector<uint8_t> marks(phons.size(), 0);
+    std::vector<StressSyl> syls;
+    BuildStressSyls(phons, syls);
+    int n = (int)syls.size();
+    int primary = MainStressSyl(syls);
+    if (primary < 0) {
+        return marks;
+    }
+    marks[syls[primary].idx] = 1;
+
+    // 6.3.7 Strong First Syllable Rule: a polysyllable whose first syllable is
+    // not itself the primary takes a secondary stress there when that syllable
+    // is heavy: a long/tense vowel (dielectric, hydro-) or closed by two or more
+    // consonants (circum-, cascade). Light open first syllables stay reduced
+    // (agenda, difficult keep their single accent).
+    if (n >= 2 && primary != 0) {
+        const StressSyl& first = syls[0];
+        if (first.isLong || first.coda >= 2) {
+            marks[first.idx] = 2;
+        }
+    }
+    return marks;
 }
 
 }  // namespace SharpVox

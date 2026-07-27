@@ -17,7 +17,34 @@ namespace SharpVox {
         // that begin with ' ' (space) can fire at the word onset.
         static std::vector<uint8_t> Convert(const std::string& word);
 
+        // MITalk (Allen/Hunnicutt/Klatt 1987) sec 6.3.1 Main Stress Rule, after
+        // Halle & Keyser (1971). Returns the index into an LTS phoneme sequence
+        // of the vowel that should receive primary lexical stress, or -1 if the
+        // word has no vowel. Only the cyclic Main Stress Rule (cases 1-3) is
+        // applied; noncyclic reduction/retraction and prefix exclusion are not
+        // yet implemented (MITalk notes the same prefix limitation).
+        static int MainStressVowelIndex(const std::vector<uint8_t>& phons);
+
+        // Full stress assignment for an LTS phoneme sequence. Returns a vector
+        // the same length as phons giving a stress level per position: 0 = none,
+        // 1 = primary, 2 = secondary. Non-vowel positions are always 0. Applies
+        // the Main Stress Rule (6.3.1) for the single primary, then the Strong
+        // First Syllable Rule (6.3.7) for a secondary on a heavy first syllable.
+        static std::vector<uint8_t> AssignStress(const std::vector<uint8_t>& phons);
+
     private:
+        // Vowel classification on phoneme IDs (not letters) for the stress rule.
+        static bool IsVowelPhon(uint8_t p);
+        static bool IsLongVowelPhon(uint8_t p);
+
+        // A syllable is a vowel nucleus plus the consonants up to the next vowel.
+        struct StressSyl { int idx; bool isLong; int coda; };
+        // Break a phoneme sequence into syllable nuclei with their coda counts.
+        static void BuildStressSyls(const std::vector<uint8_t>& phons, std::vector<StressSyl>& out);
+        // Main Stress Rule 6.3.1 cases 1-3 on a syllable list; returns the
+        // syllable index (0-based) of the primary, or -1 if there are none.
+        static int MainStressSyl(const std::vector<StressSyl>& syls);
+
         // Feature flag bits
         static constexpr uint8_t CV = 0x01; // vowel: A E I O U Y
         static constexpr uint8_t CF = 0x02; // front vowel: E I Y
