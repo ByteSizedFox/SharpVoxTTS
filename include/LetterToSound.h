@@ -25,17 +25,22 @@ namespace SharpVox {
         // yet implemented (MITalk notes the same prefix limitation).
         static int MainStressVowelIndex(const std::vector<uint8_t>& phons);
 
-        // Full stress assignment for an LTS phoneme sequence. Returns a vector
-        // the same length as phons giving a stress level per position: 0 = none,
-        // 1 = primary, 2 = secondary. Non-vowel positions are always 0. Applies
-        // the Main Stress Rule (6.3.1) for the single primary, then the Strong
-        // First Syllable Rule (6.3.7) for a secondary on a heavy first syllable.
-        static std::vector<uint8_t> AssignStress(const std::vector<uint8_t>& phons);
+        // Full stress assignment for an LTS phoneme sequence. Returns a per-position
+        // stress level (0 none, 1 primary, 2 secondary; non-vowels always 0) and may
+        // rewrite phons in place, since destressing/reduction (6.3.5, 6.3.9) change
+        // vowel identity. Applies MITalk 6.3.1/6.3.2/6.3.5/6.3.7/6.3.9.
+        static std::vector<uint8_t> AssignStress(std::vector<uint8_t>& phons);
 
     private:
         // Vowel classification on phoneme IDs (not letters) for the stress rule.
         static bool IsVowelPhon(uint8_t p);
         static bool IsLongVowelPhon(uint8_t p);
+        // 6.3.5 tenseness reduction: long vowel to its short counterpart
+        // (ey->ae iy->eh ay->ih ow->aa uw->uh); oy/aw and short vowels unchanged.
+        static uint8_t ShortenVowel(uint8_t p);
+        // 6.3.9 vowel reduction: unstressed short vowel to schwa (eh/ih->ix,
+        // else ->ax); long/tense/r-colored and already-reduced vowels unchanged.
+        static uint8_t ReduceVowel(uint8_t p);
 
         // A syllable is a vowel nucleus plus the consonants up to the next vowel.
         struct StressSyl { int idx; bool isLong; int coda; };

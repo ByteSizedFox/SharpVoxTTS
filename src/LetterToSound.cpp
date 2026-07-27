@@ -802,6 +802,30 @@ bool LetterToSound::IsLongVowelPhon(uint8_t p) {
     }
 }
 
+uint8_t LetterToSound::ShortenVowel(uint8_t p) {
+    // 6.3.5 tenseness reduction table. oy and aw are left long per MITalk.
+    switch (p) {
+        case _EY_: return _AE_;
+        case _IY_: return _EH_;
+        case _AY_: return _IH_;
+        case _OW_: return _AA_;
+        case _UW_: return _UH_;
+        default:   return p;
+    }
+}
+
+uint8_t LetterToSound::ReduceVowel(uint8_t p) {
+    // Only short vowels reduce; long/tense/r-colored and already-reduced ix/ax pass.
+    if (IsLongVowelPhon(p)) {
+        return p;
+    }
+    switch (p) {
+        case _EH_: case _IH_: return _IX_;
+        case _IX_: case _AX_: return p;
+        default:              return _AX_;
+    }
+}
+
 void LetterToSound::BuildStressSyls(const std::vector<uint8_t>& phons, std::vector<StressSyl>& out) {
     // A syllable is a vowel nucleus plus the consonants that follow it up to
     // (not including) the next vowel. coda = that consonant count.
@@ -857,7 +881,7 @@ int LetterToSound::MainStressVowelIndex(const std::vector<uint8_t>& phons) {
     return m < 0 ? -1 : syls[m].idx;
 }
 
-std::vector<uint8_t> LetterToSound::AssignStress(const std::vector<uint8_t>& phons) {
+std::vector<uint8_t> LetterToSound::AssignStress(std::vector<uint8_t>& phons) {
     std::vector<uint8_t> marks(phons.size(), 0);
     std::vector<StressSyl> syls;
     BuildStressSyls(phons, syls);
@@ -866,17 +890,45 @@ std::vector<uint8_t> LetterToSound::AssignStress(const std::vector<uint8_t>& pho
     if (primary < 0) {
         return marks;
     }
+    // 6.3.2 -ic (ih k) attracts primary to the penult: symBOLic, teleGRAPHic.
+    // Penult is the productive SPE behavior; antepenult exceptions (catholic) are
+    // lexical and out of scope for a fallback. The paper text reads "first syllable".
+    if (n >= 2) {
+        const StressSyl& last = syls[n - 1];
+        if (phons[last.idx] == _IH_ && last.coda == 1 && phons[last.idx + 1] == _K_) {
+            primary = n - 2;
+        }
+    }
     marks[syls[primary].idx] = 1;
 
-    // 6.3.7 Strong First Syllable Rule: a polysyllable whose first syllable is
-    // not itself the primary takes a secondary stress there when that syllable
-    // is heavy: a long/tense vowel (dielectric, hydro-) or closed by two or more
-    // consonants (circum-, cascade). Light open first syllables stay reduced
-    // (agenda, difficult keep their single accent).
+    // 6.3.5 Destressing Rule 1: shorten a non-first-syllable long vowel one
+    // consonant before the stress (instrumental: uw -> uh). Those vowels are
+    // already unmarked here, so only the shortening shows; Rule 2 is a no-op.
+    for (int k = 1; k + 1 < n; k++) {
+        if (marks[syls[k].idx] != 0) {
+            continue;
+        }
+        if (syls[k].coda == 1 && marks[syls[k + 1].idx] != 0) {
+            phons[syls[k].idx] = ShortenVowel(phons[syls[k].idx]);
+        }
+    }
+
+    // 6.3.7 Strong First Syllable: secondary on a non-primary first syllable when
+    // heavy (long vowel or coda >= 2: dielectric, circum-), or when the primary is
+    // on syllable 3+ so an alternating beat fits (telegraphic, ptolemaic). A light
+    // syllable right before the primary stays reduced (photography, banana).
     if (n >= 2 && primary != 0) {
         const StressSyl& first = syls[0];
-        if (first.isLong || first.coda >= 2) {
+        if (first.isLong || first.coda >= 2 || primary >= 2) {
             marks[first.idx] = 2;
+        }
+    }
+
+    // 6.3.9 Vowel Reduction: every remaining unstressed short vowel goes to schwa
+    // (eh/ih -> ix, else -> ax). Runs last, on the final marks.
+    for (int i = 0; i < (int)phons.size(); i++) {
+        if (marks[i] == 0 && IsVowelPhon(phons[i])) {
+            phons[i] = ReduceVowel(phons[i]);
         }
     }
     return marks;
