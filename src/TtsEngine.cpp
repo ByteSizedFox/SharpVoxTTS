@@ -328,12 +328,19 @@ namespace SharpVox {
         _synth = KlattSynthesizer(SampleRate);
 #endif
         int16_t lo = _voice.LarynxOffset;
+        // Parallel frication bank: baseline formants scaled by TractScale (small
+        // tract -> higher frication), per-voice F4p/F5p/F6p ignored. F6pBW=700 is
+        // the wide anti-whistle shelf.
+        float ts = _voice.TractScale > 0 ? _voice.TractScale : 1.0f;
+        int16_t f4p = (int16_t)clamp11<int32_t>((int32_t)(3650 * ts) + lo, 100, 8000);
+        int16_t f5p = (int16_t)clamp11<int32_t>((int32_t)(4200 * ts) + lo, 100, 8000);
+        int16_t f6p = (int16_t)clamp11<int32_t>((int32_t)(6000 * ts) + lo, 100, 8000);
         _synth.SetVoice(_voice.NGain, true,
             (int16_t)clamp11<int32_t>(_voice.F4Freq + lo,  100, 8000), _voice.F4BW,
             (int16_t)clamp11<int32_t>(_voice.F5Freq + lo,  100, 8000), _voice.F5BW,
-            (int16_t)clamp11<int32_t>(_voice.F4pFreq + lo, 100, 8000), _voice.F4pBW,
-            (int16_t)clamp11<int32_t>(_voice.F5pFreq + lo, 100, 8000), _voice.F5pBW,
-            (int16_t)clamp11<int32_t>(_voice.F6pFreq + lo, 100, 8000), _voice.F6pBW,
+            f4p, 150,
+            f5p, 100,
+            f6p, 700,
             _voice.NasalBase, _voice.NasalBW,
             _voice.AGain, _voice.ACycle);
         _synth.Jitter          = _voice.Jitter;

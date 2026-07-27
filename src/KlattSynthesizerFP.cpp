@@ -145,6 +145,7 @@ KlattSynthesizerFP::KlattSynthesizerFP(int32_t sampleRate) {
     // Zero-initialise IIR coefficients.
     _f2A=_f2B=_f2C=0; _f3A=_f3B=_f3C=0;
     _f4b0=_f4b1=_f4B=_f4C=0.0f; _f5cb0=_f5cb1=_f5cB=_f5cC=0.0f; _f6cb0=_f6cb1=_f6cB=_f6cC=0.0f;
+    _f7cb0=_f7cb1=_f7cB=_f7cC=0.0f; _f8cb0=_f8cb1=_f8cB=_f8cC=0.0f;
     _f4pA=_f4pB=_f4pC=0; _f5pA=_f5pB=_f5pC=0; _f6pA=_f6pB=_f6pC=0;
     _nzA=_nzB=_nzC=0; _npA=_npB=_npC=0;
 
@@ -155,7 +156,8 @@ KlattSynthesizerFP::KlattSynthesizerFP(int32_t sampleRate) {
     // Zero-initialise delay taps and filter state.
     _f1D1=_f1D2=0; _f2D1=_f2D2=0; _f3D1=_f3D2=0;
     _f4D1=_f4D2=0; _f5cD1=_f5cD2=0; _f6cD1=_f6cD2=0;
-    _f1X1=_f2X1=_f3X1=_f4X1=_f5cX1=_f6cX1=0.0f;
+    _f7cD1=_f7cD2=0; _f8cD1=_f8cD2=0;
+    _f1X1=_f2X1=_f3X1=_f4X1=_f5cX1=_f6cX1=_f7cX1=_f8cX1=0.0f;
     _f2pD1=_f2pD2=0; _f3pD1=_f3pD2=0;
     _f4pD1=_f4pD2=0; _f5pD1=_f5pD2=0; _f6pD1=_f6pD2=0;
     _nzD1=_nzD2=0; _npD1=_npD2=0;
@@ -236,6 +238,11 @@ void KlattSynthesizerFP::SetVoice(int16_t nGain, bool bit16,
     _f5cFreq = HzToPitch(f5_Freq);  _f5cBW = f5_BW;
     // Fixed cascade F6: Klatt 1980 higher-pole correction (4900Hz, BW 1000, NFC=6).
     _f6cFreq = HzToPitch(4900);  _f6cBW = 1000;
+    // Fixed cascade F7/F8: Rabiner 1968 high poles the classic 10kHz Klatt got
+    // free from phantom near-Nyquist poles, absent at 48kHz. Refills the >F6
+    // voiced envelope so vowels do not cliff above 5kHz. Nyquist-clamped below.
+    _f7cFreq = HzToPitch(6500);  _f7cBW = 720;
+    _f8cFreq = HzToPitch(7500);  _f8cBW = 1250;
     _f4pFreq = HzToPitch(f4p_Freq); _f4pBW = bw4p_BW;
     _f5pFreq = HzToPitch(f5p_Freq); _f5pBW = bw5p_BW;
     _f6pFreq = HzToPitch(f6p_Freq); _f6pBW = bw6p_BW;
@@ -272,6 +279,8 @@ void KlattSynthesizerFP::InitFixedFormants() {
     Calc_Matched_Pole_Coefficients(_f4b0, _f4b1, _f4B, _f4C, _f4cFreq, _f4cBW);
     Calc_Matched_Pole_Coefficients(_f5cb0, _f5cb1, _f5cB, _f5cC, _f5cFreq, _f5cBW);
     Calc_Matched_Pole_Coefficients(_f6cb0, _f6cb1, _f6cB, _f6cC, _f6cFreq, _f6cBW);
+    Calc_Matched_Pole_Coefficients(_f7cb0, _f7cb1, _f7cB, _f7cC, _f7cFreq, _f7cBW);
+    Calc_Matched_Pole_Coefficients(_f8cb0, _f8cb1, _f8cB, _f8cC, _f8cFreq, _f8cBW);
 
     // No amplitude fade near Nyquist: Calc_Pole_Coefficients clamps such
     // poles to 0.8*nyq with widened BW (S was fully silent at 8 kHz), and
@@ -488,7 +497,8 @@ void KlattSynthesizerFP::SynthesizeFrame(Frame frame, int16_t* outputBuffer, int
 #endif
         _sgD1=_sgD2=0;
         _f1D1=_f1D2=_f2D1=_f2D2=_f3D1=_f3D2=_f4D1=_f4D2=_f5cD1=_f5cD2=_f6cD1=_f6cD2=0;
-        _f1X1=_f2X1=_f3X1=_f4X1=_f5cX1=_f6cX1=0.0f;
+        _f7cD1=_f7cD2=_f8cD1=_f8cD2=0;
+        _f1X1=_f2X1=_f3X1=_f4X1=_f5cX1=_f6cX1=_f7cX1=_f8cX1=0.0f;
         _npD1=_npD2=_nzD1=_nzD2=0;
         _preemphPrev=0; _tiltPrev=0;
 
@@ -808,6 +818,9 @@ void KlattSynthesizerFP::SynthesizeFrame(Frame frame, int16_t* outputBuffer, int
                 cascadeOutF = fp_iir_zff(_f5cb0, _f5cb1, _f5cB, _f5cC, cascadeOutF, _f5cX1, _f5cD1, _f5cD2);
                 // Fixed cascade F6 higher-pole correction (Klatt 1980, 4900Hz/BW1000).
                 cascadeOutF = fp_iir_zff(_f6cb0, _f6cb1, _f6cB, _f6cC, cascadeOutF, _f6cX1, _f6cD1, _f6cD2);
+                // F7/F8 refill the >5kHz voiced envelope (Rabiner 1968 high poles).
+                cascadeOutF = fp_iir_zff(_f7cb0, _f7cb1, _f7cB, _f7cC, cascadeOutF, _f7cX1, _f7cD1, _f7cD2);
+                cascadeOutF = fp_iir_zff(_f8cb0, _f8cb1, _f8cB, _f8cC, cascadeOutF, _f8cX1, _f8cD1, _f8cD2);
             }
             // Q6 conversion: truncating to Q0 here left a ~36 LSB output step
             // (OutputGain*4) heard as broadband hiss behind voiced speech.

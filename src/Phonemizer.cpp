@@ -1500,8 +1500,23 @@ namespace SharpVox {
 
         // 3. Fall back to letter-to-sound rules
         if (phons.empty()) {
-            phons = LetterToSound::Convert(upperWord);
+            std::vector<uint8_t> lts = LetterToSound::Convert(upperWord);
             StatLts++;
+            // LTS output carries no stress marks, which leaves the word
+            // deaccented (flat, and stealing the phrase nucleus). Assign lexical
+            // stress via the MITalk stress rules and splice the OP_STRESS1 /
+            // OP_STRESS2 opcodes before each marked vowel so they reach the
+            // tokenizer exactly like a dictionary word's stress.
+            std::vector<uint8_t> marks = LetterToSound::AssignStress(lts);
+            phons.reserve(lts.size() + 2);
+            for (int i = 0; i < (int)lts.size(); i++) {
+                if (marks[i] == 1) {
+                    phons.push_back(OP_STRESS1);
+                } else if (marks[i] == 2) {
+                    phons.push_back(OP_STRESS2);
+                }
+                phons.push_back(lts[i]);
+            }
         }
 
         // Prepend OP_WORD marker

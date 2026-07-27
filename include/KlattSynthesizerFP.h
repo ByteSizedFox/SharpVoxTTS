@@ -134,6 +134,10 @@ namespace SharpVox {
         float _f4b0,  _f4b1,  _f4B,  _f4C;
         float _f5cb0, _f5cb1, _f5cB, _f5cC;
         float _f6cb0, _f6cb1, _f6cB, _f6cC;
+        // Cascade F7/F8: fills the >F6 envelope gap the original 10kHz Klatt
+        // design got free from near-Nyquist phantom poles (Rabiner 1968 values).
+        float _f7cb0, _f7cb1, _f7cB, _f7cC;
+        float _f8cb0, _f8cb1, _f8cB, _f8cC;
         int32_t _f4pA, _f4pB, _f4pC;
         int32_t _f5pA, _f5pB, _f5pC;
         int32_t _f6pA, _f6pB, _f6pC;
@@ -148,8 +152,10 @@ namespace SharpVox {
         float   _f4D1,  _f4D2;
         float   _f5cD1, _f5cD2;
         float   _f6cD1, _f6cD2;
+        float   _f7cD1, _f7cD2;
+        float   _f8cD1, _f8cD2;
         // Cascade input taps x[n-1] for the matched one-zero numerators.
-        float   _f1X1, _f2X1, _f3X1, _f4X1, _f5cX1, _f6cX1;
+        float   _f1X1, _f2X1, _f3X1, _f4X1, _f5cX1, _f6cX1, _f7cX1, _f8cX1;
         float   _nzD1,  _nzD2;
         float   _npD1,  _npD2;
         float   _sgD1,  _sgD2;
@@ -239,6 +245,8 @@ namespace SharpVox {
         int16_t _f4cFreq, _f4cBW;
         int16_t _f5cFreq, _f5cBW;
         int16_t _f6cFreq, _f6cBW;   // fixed cascade F6 (Klatt 1980 higher-pole correction)
+        int16_t _f7cFreq, _f7cBW;   // fixed cascade F7 (Rabiner 1968, 6500Hz/BW720)
+        int16_t _f8cFreq, _f8cBW;   // fixed cascade F8 (Rabiner 1968, 7500Hz/BW1250)
         int16_t _f4pFreq, _f4pBW;
         int16_t _f5pFreq, _f5pBW;
         int16_t _f6pFreq, _f6pBW;
