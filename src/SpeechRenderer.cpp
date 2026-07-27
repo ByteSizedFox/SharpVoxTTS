@@ -996,32 +996,62 @@ void SpeechRenderer::InitCtrlsForNewPhon() {
             }
         }
 
-        cb.HEAD_offs = 0; cb.HEAD_step = 0;
-        if (_transTime > 0) {
-            cb.HEAD_offs = (_transLevel - cb.curP_START_Targ) << kStepSizeRes;
-            if (cb.HEAD_offs != 0) {
-                int32_t hs   = (int32_t)(((int64_t)OvX(_transTime) * cb.HEAD_offs) >> 16);
-                cb.HEAD_step = hs;
-                cb.HEAD_offs = hs * _transTime;
-            }
-        }
+        // Capture the onset ramp. The offset ramp is computed next so the combined
+        // transition cap can be applied before either envelope is built.
+        int32_t headLevel = _transLevel;
+        int32_t headTime  = _transTime;
 
         // TAIL envelope: offset ramp from curP_END_Targ toward the following target
         _transLevel = (cb.curP_END_Targ + cb.nextP_START_Targ) >> 1;
         _transTime  = 25 / kFrameTime;
         TailRules(cb, bt);
         _transTime  = LinearizeTransTime(_transTime);
-        // Keep the TAIL start in sync with the linearized transition length.
-        // TailRules set TAIL_START_time from the pre-linearized _transTime; without
-        // this the ramp accumulates for more frames than its step is sized for and
-        // overshoots badly at high rate, swamping the diphthong's own trajectory.
-        cb.TAIL_START_time = _curPhonDur - _transTime;
+        int32_t tailLevel = _transLevel;
+        int32_t tailTime  = _transTime;
 
+        // Short-vowel coarticulatory undershoot: as a vowel shortens, scale the
+        // onset/offset excursion toward the vowel's own target so it keeps a steady
+        // nucleus instead of blurring (AH -> EH) or snapping through a halfway shape.
+        // Vowel frequency blocks only; consonant place transitions are untouched.
+        if (bt == kFreqType && (_curPhonFlags & kVowelF) != 0) {
+            // Full excursion at/above kRefDurFrames; below it scale down, floored.
+            constexpr int32_t kRefDurFrames = 12;                // ~60ms at 5ms/frame
+            constexpr int32_t kMinScaleQ16  = (65536 * 30) / 100;
+            int32_t scaleQ16 = 65536;
+            if (_curPhonDur < kRefDurFrames) {
+                scaleQ16 = (_curPhonDur << 16) / kRefDurFrames;
+                if (scaleQ16 < kMinScaleQ16) {
+                    scaleQ16 = kMinScaleQ16;
+                }
+            }
+            headLevel = cb.curP_START_Targ +
+                (int32_t)(((int64_t)(headLevel - cb.curP_START_Targ) * scaleQ16) >> 16);
+            tailLevel = cb.curP_END_Targ +
+                (int32_t)(((int64_t)(tailLevel - cb.curP_END_Targ) * scaleQ16) >> 16);
+        }
+
+        cb.HEAD_offs = 0; cb.HEAD_step = 0;
+        if (headTime > 0) {
+            cb.HEAD_offs = (headLevel - cb.curP_START_Targ) << kStepSizeRes;
+            if (cb.HEAD_offs != 0) {
+                int32_t hs   = (int32_t)(((int64_t)OvX(headTime) * cb.HEAD_offs) >> 16);
+                cb.HEAD_step = hs;
+                cb.HEAD_offs = hs * headTime;
+            }
+        }
+
+        // Keep the TAIL start in sync with the (possibly capped) transition length,
+        // else the ramp accumulates for more frames than its step is sized for and
+        // overshoots badly at high rate, swamping the diphthong's own trajectory.
+        cb.TAIL_START_time = _curPhonDur - tailTime;
+        if (cb.TAIL_START_time < 0) {
+            cb.TAIL_START_time = 0;
+        }
         cb.TAIL_offs = 0; cb.TAIL_step = 0;
-        if (_transTime > 0) {
-            int32_t ts = (_transLevel - cb.curP_END_Targ) << kStepSizeRes;
+        if (tailTime > 0) {
+            int32_t ts = (tailLevel - cb.curP_END_Targ) << kStepSizeRes;
             if (ts != 0) {
-                cb.TAIL_step = (int32_t)(((int64_t)OvX(_transTime) * ts) >> 16);
+                cb.TAIL_step = (int32_t)(((int64_t)OvX(tailTime) * ts) >> 16);
             }
         }
     }

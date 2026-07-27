@@ -86,8 +86,8 @@ static inline float fp_iir_zff(float b0, float b1, float B, float C,
 }
 
 // KLGLOTT88 flow tau^2*(1-tau) blended with the legacy pulse; kGlotTilt sets
-// brightness (0 = full bass/-6 dB/oct, higher lifts presence).
-static constexpr float kGlotTilt = 0.10f;
+// brightness (0 = full bass/-6 dB/oct, higher lifts 1-3 kHz presence).
+static constexpr float kGlotTilt = 0.65f;
 static inline float GlotPulse(float tau) {
     return (1.0f - kGlotTilt) * (tau * tau * (1.0f - tau))
          + kGlotTilt * (tau * (0.33333333f - tau * 0.5f));
