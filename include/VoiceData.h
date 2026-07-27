@@ -35,9 +35,9 @@ struct VoiceData {
     int16_t OnsetHardness = 50;  // 0=soft breathy onset (slow ramp), 50=natural, 100=hard glottal attack (instant)
 
     int16_t F4Freq = 4825;
-    int16_t F4BW = 200;
+    int16_t F4BW = 650;
     int16_t F5Freq = 4000;
-    int16_t F5BW = 250;
+    int16_t F5BW = 750;
     int16_t F4pFreq = 3650;
     int16_t F4pBW = 150;
     int16_t F5pFreq = 4200;
