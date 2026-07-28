@@ -187,6 +187,7 @@ static const char* const LTS_I[] = {
     "[IGN]^=AY N",
     "[IGN]%=AY N",
     "[IQUE]=IY K",
+    "#:[I]#=IY",
     "[I]=IH",
     nullptr,
 };
