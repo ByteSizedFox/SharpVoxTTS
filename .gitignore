@@ -15,3 +15,14 @@ platform/wasm/wwwroot/js/sharpvox.js
 platform/wasm/wwwroot/js/sharpvox.wasm
 hello_world
 hello.wav
+
+# Platform artifacts
+build/
+.gradle/
+.cxx/
+.externalNativeBuild/
+.pio/
+.idea/
+local.properties
+*.apk
+*.aab
