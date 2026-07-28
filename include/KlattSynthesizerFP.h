@@ -1,7 +1,7 @@
 #ifndef SHARPVOX_KLATT_SYNTHESIZER_FP_H
 #define SHARPVOX_KLATT_SYNTHESIZER_FP_H
 
-// Fixed-point drop-in replacement for KlattSynthesizer.
+// Fixed-point Klatt (1980) formant synthesizer.
 // All per-sample IIR operations and modulation use integer arithmetic.
 // Coefficient computation (Calc_Pole_Coefficients) still uses float at frame
 // boundaries  that's negligible cost and keeps the math exact.
@@ -16,11 +16,8 @@
 //   Pink noise state:     int32_t Q15  (small values  50 max  1.6M, fits int32_t)
 //   Vibrato/tremolo phase: uint32_t [0, 1<<17) = [0, 2)
 //   Sin LUT:              int16_t Q15, 512 entries
-//
-// Enable by building with -DSHARPVOX_FIXED_POINT_SYNTH. TtsEngine.h/cpp use
-// #ifdef guards to swap KlattSynthesizerFP into the _synth member.
 
-#include "KlattSynthesizer.h"  // for Frame, HzToPitch/PitchToHz shared static helpers
+#include "Frame.h"  // Frame + pitch helpers
 
 #include <cstdint>
 #include <cmath>
@@ -31,19 +28,15 @@ namespace SharpVox {
 
     class KlattSynthesizerFP {
     public:
-        static constexpr int32_t KMaxBandWidth       = KlattSynthesizer::KMaxBandWidth;
-        static constexpr int32_t KPrecision          = KlattSynthesizer::KPrecision;
-        static constexpr int32_t KOnePtOh            = KlattSynthesizer::KOnePtOh;
-        static constexpr int32_t KNoiseGain          = KlattSynthesizer::KNoiseGain;
-        static constexpr int32_t KDefaultSampleRate  = KlattSynthesizer::KDefaultSampleRate;
-        static constexpr int32_t KDefaultSampFrameLen= KlattSynthesizer::KDefaultSampFrameLen;
+        static constexpr int32_t KMaxBandWidth       = 1225;
+        static constexpr int32_t KPrecision          = 13;
+        static constexpr int32_t KOnePtOh            = 0x2000;
+        static constexpr int32_t KNoiseGain          = 2500;
+        static constexpr int32_t KDefaultSampleRate  = 22050;
+        static constexpr int32_t KDefaultSampFrameLen= 112;
 
         int32_t SampleRate() const { return _sampleRate; }
         int32_t SampFrameLen;
-
-        // Delegate static helpers to the float version  identical math, no duplication.
-        static int16_t HzToPitch(int16_t hz)    { return KlattSynthesizer::HzToPitch(hz); }
-        static int16_t PitchToHz(int16_t pitch) { return KlattSynthesizer::PitchToHz(pitch); }
 
         int16_t VoiceChorus    = 0;
         int16_t Jitter         = 0;

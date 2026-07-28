@@ -1,6 +1,6 @@
 CXX      := g++
 # -MMD -MP emits .d header dependency files so edits to include/ trigger rebuilds
-CXXFLAGS := -std=c++11 -O2 -Wall -Wextra -Iinclude -fPIC -DSHARPVOX_FIXED_POINT_SYNTH -MMD -MP
+CXXFLAGS := -std=c++11 -O2 -Wall -Wextra -Iinclude -fPIC -MMD -MP
 LDFLAGS  :=
 LDLIBS   := -lm
 
@@ -11,7 +11,6 @@ CLI_LDLIBS   := $(LDLIBS)
 # Library sources (all files shared by both targets)
 LIB_SRCS := \
     src/Tables.cpp \
-    src/KlattSynthesizer.cpp \
     src/KlattSynthesizerFP.cpp \
     src/PitchInterpolator.cpp \
     src/AudioProcessor.cpp \
@@ -66,7 +65,7 @@ WASM_SRCS := $(LIB_SRCS) \
 WASM_OUT  := platform/wasm/wwwroot/js/sharpvox.js
 
 EMCC      := emcc
-EMCCFLAGS := -std=c++17 -O2 -Iinclude -DSHARPVOX_FIXED_POINT_SYNTH -DSHARPVOX_SAMPLED_GLOT \
+EMCCFLAGS := -std=c++17 -O2 -Iinclude -DSHARPVOX_SAMPLED_GLOT \
     --bind \
     -fwasm-exceptions \
     -sALLOW_MEMORY_GROWTH=1 \

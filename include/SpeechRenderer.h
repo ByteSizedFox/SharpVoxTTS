@@ -8,12 +8,12 @@
 #include "../include/SynthData.h"
 #include "../include/VoiceData.h"
 #include "../include/Tables.h"
-#include "../include/KlattSynthesizer.h"
+#include "../include/Frame.h"
 #include "../include/PitchInterpolator.h"
 
 namespace SharpVox {
 
-// Converts phonemes into KlattSynthesizer frames using Klatt (1980) and Klatt & Klatt (1990) models.
+// Converts phonemes into KlattSynthesizerFP frames using Klatt (1980) and Klatt & Klatt (1990) models.
 //
 // Parallel control blocks with HEAD and TAIL ramps ensure continuous parameter trajectory blending.
 //

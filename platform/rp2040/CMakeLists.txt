@@ -41,7 +41,7 @@ set(ROOT ${CMAKE_CURRENT_SOURCE_DIR}/../..)
 add_executable(sharptalk_demo
     main.cpp
     ${ROOT}/src/Tables.cpp
-    ${ROOT}/src/KlattSynthesizer.cpp
+    ${ROOT}/src/KlattSynthesizerFP.cpp
     ${ROOT}/src/PitchInterpolator.cpp
     ${ROOT}/src/AudioProcessor.cpp
     ${ROOT}/src/SpeechRenderer.cpp

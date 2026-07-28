@@ -8,10 +8,7 @@
 #include <unordered_map>
 #include "../include/AudioProcessor.h"
 #include "../include/SpeechRenderer.h"
-#include "../include/KlattSynthesizer.h"
-#ifdef SHARPVOX_FIXED_POINT_SYNTH
 #include "../include/KlattSynthesizerFP.h"
-#endif
 #include "../include/TextCommands.h"
 #include "../include/KlattschParser.h"
 #include "../include/Phonemizer.h"
@@ -30,7 +27,7 @@ namespace SharpVox {
 
     // Top-level TTS API. Converts text to audio via the full pipeline:
     //   Phonemizer (text -> PhonemeToken[]) -> AudioProcessor (phoneme processing) ->
-    //   SpeechRenderer (formant targets) -> KlattSynthesizer (PCM samples).
+    //   SpeechRenderer (formant targets) -> KlattSynthesizerFP (PCM samples).
     //
     // Both speak paths stream clause by clause, so memory is bounded by the longest
     // clause rather than the whole input. Each sentence or clause gets its own
@@ -115,11 +112,7 @@ namespace SharpVox {
         KlattschParser _klattsch;
         AudioProcessor _be;
         SpeechRenderer _renderer;
-#ifdef SHARPVOX_FIXED_POINT_SYNTH
         KlattSynthesizerFP _synth;
-#else
-        KlattSynthesizer _synth;
-#endif
 #ifdef SHARPVOX_SAMPLED_GLOT
         std::vector<float> _glotPcm;
         int32_t _glotSrcRate    = 0;

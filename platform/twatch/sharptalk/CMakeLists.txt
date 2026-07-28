@@ -3,7 +3,6 @@ set(ROOT ${CMAKE_CURRENT_SOURCE_DIR}/../../..)
 idf_component_register(
     SRCS
         "${ROOT}/src/Tables.cpp"
-        "${ROOT}/src/KlattSynthesizer.cpp"
         "${ROOT}/src/KlattSynthesizerFP.cpp"
         "${ROOT}/src/PitchInterpolator.cpp"
         "${ROOT}/src/AudioProcessor.cpp"
@@ -28,4 +27,4 @@ idf_component_register(
 
 target_compile_options(${COMPONENT_LIB} PRIVATE
     "-std=c++17" "-fexceptions" "-fno-rtti" "-O3" "-ffast-math")
-target_compile_definitions(${COMPONENT_LIB} PRIVATE _HAS_EXCEPTIONS=1 SHARPVOX_FIXED_POINT_SYNTH=1)
+target_compile_definitions(${COMPONENT_LIB} PRIVATE _HAS_EXCEPTIONS=1)

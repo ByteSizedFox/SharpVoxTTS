@@ -387,9 +387,9 @@ Frame SpeechRenderer::SaveFrame(int16_t f0, uint8_t phonCtrl) {
         curF3 += 10;
     }
 
-    f.F1  = KlattSynthesizer::HzToPitch(curF1);
-    f.F2  = KlattSynthesizer::HzToPitch(curF2);
-    f.F3  = KlattSynthesizer::HzToPitch(curF3);
+    f.F1  = HzToPitch(curF1);
+    f.F2  = HzToPitch(curF2);
+    f.F3  = HzToPitch(curF3);
     f.Bw1 = (int16_t)((_controlData[kBW1] * _voiceBWgain1) >> 16);
     f.Bw2 = (int16_t)((_controlData[kBW2] * _voiceBWgain2) >> 16);
     f.Bw3 = (int16_t)((_controlData[kBW3] * _voiceBWgain3) >> 16);
@@ -401,7 +401,7 @@ Frame SpeechRenderer::SaveFrame(int16_t f0, uint8_t phonCtrl) {
         f.Bw2 = (int16_t)(((int32_t)f.Bw2 * _bwWidenQ16) >> 16);
         f.Bw3 = (int16_t)(((int32_t)f.Bw3 * _bwWidenQ16) >> 16);
     }
-    f.FNZ = KlattSynthesizer::HzToPitch((int16_t)(_controlData[kFNZ] * _tractScale));
+    f.FNZ = HzToPitch((int16_t)(_controlData[kFNZ] * _tractScale));
     f.Av  = (int16_t)(LogToLin(_controlData[kAV]) * _tractScale);
     f.Af  = LogToLin(_controlData[kAF]);
     f.A2  = LogToLin(_controlData[kAp2]);

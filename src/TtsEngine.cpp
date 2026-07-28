@@ -1,7 +1,6 @@
 #include "../include/TtsEngine.h"
 #include "../include/AudioProcessor.h"
 #include "../include/SpeechRenderer.h"
-#include "../include/KlattSynthesizer.h"
 #include "../include/KlattschParser.h"
 #include "../include/TextCommands.h"
 #include "../include/Phonemizer.h"
@@ -322,11 +321,7 @@ namespace SharpVox {
 
     void TtsEngine::ResetSynthVoice() {
         _renderer = SpeechRenderer(_voice);
-#ifdef SHARPVOX_FIXED_POINT_SYNTH
         _synth = KlattSynthesizerFP(SampleRate);
-#else
-        _synth = KlattSynthesizer(SampleRate);
-#endif
         int16_t lo = _voice.LarynxOffset;
         // Parallel frication bank: baseline formants scaled by TractScale (small
         // tract -> higher frication). Not voice-tunable; user control was retired
