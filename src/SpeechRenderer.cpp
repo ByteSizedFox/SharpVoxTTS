@@ -684,7 +684,7 @@ int16_t SpeechRenderer::GetTargetRaw(int32_t index) {
             // it fades word-finally, making Z sound like S. Attenuate the noise
             // so voicing stays dominant.
             if ((cf & kFric) != 0 && (cf & kVoicedF) != 0 && tv > 0) {
-                tv -= 8;
+                tv -= 16;
                 if (tv < 0) {
                     tv = 0;
                 }

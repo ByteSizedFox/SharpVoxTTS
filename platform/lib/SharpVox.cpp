@@ -42,9 +42,26 @@ struct SharpVoxSpeaker::SpeakCtx {
     void* userdata;
 };
 
+const int16_t* SharpVoxSpeaker::ScaleForVolume(const int16_t* buf, int32_t len) {
+    float vol = AudioVolume;
+    if (std::fabs(vol - 1.0f) < 0.001f || len <= 0) {
+        return buf;
+    }
+    static thread_local std::vector<int16_t> scratch;
+    scratch.resize(static_cast<size_t>(len));
+    for (int32_t i = 0; i < len; ++i) {
+        float v = buf[i] * vol;
+        if (v >  32767.0f) v =  32767.0f;
+        if (v < -32768.0f) v = -32768.0f;
+        scratch[i] = static_cast<int16_t>(v >= 0.0f ? v + 0.5f : v - 0.5f);
+    }
+    return scratch.data();
+}
+
 void SharpVoxSpeaker::SpeakBufAdapter(const int16_t* buf, int32_t len, void* ud) {
     auto* c = static_cast<SpeakCtx*>(ud);
-    c->userOnBuffer(c->speaker, buf, len, c->userdata);
+    const int16_t* out = c->speaker->ScaleForVolume(buf, len);
+    c->userOnBuffer(c->speaker, out, len, c->userdata);
 }
 
 void SharpVoxSpeaker::SpeakChunkAdapter(const int16_t* buf, int32_t len,
@@ -52,7 +69,8 @@ void SharpVoxSpeaker::SpeakChunkAdapter(const int16_t* buf, int32_t len,
     auto* c = static_cast<SpeakCtx*>(ud);
     auto& evs = c->speaker->_phonemeEvents;
     evs.insert(evs.end(), events, events + count);
-    c->userOnChunk(c->speaker, buf, len, events, count, c->userdata);
+    const int16_t* out = c->speaker->ScaleForVolume(buf, len);
+    c->userOnChunk(c->speaker, out, len, events, count, c->userdata);
 }
 
 void SharpVoxSpeaker::Speak(const std::string& text,

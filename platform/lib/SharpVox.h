@@ -340,6 +340,8 @@ private:
     static void SpeakBufAdapter(const int16_t* buf, int32_t len, void* ud);
     static void SpeakChunkAdapter(const int16_t* buf, int32_t len,
                                   const PhonemeEvent* events, int32_t count, void* ud);
+
+    const int16_t* ScaleForVolume(const int16_t* buf, int32_t len);
 };
 
 }  // namespace SharpVox
