@@ -19,8 +19,6 @@ window.ui = {
             'LarynxOffset':'LarynxOffset','PharyngealAmt':'PharyngealAmt','LipRounding':'LipRounding',
             'NGain':'NGain',
             'F4Freq':'F4Freq','F4BW':'F4BW','F5Freq':'F5Freq','F5BW':'F5BW',
-            'F4pFreq':'F4pFreq','F4pBW':'F4pBW','F5pFreq':'F5pFreq','F5pBW':'F5pBW',
-            'F6pFreq':'F6pFreq','F6pBW':'F6pBW',
             'BwGain1':'BwGain1','BwGain2':'BwGain2','BwGain3':'BwGain3',
             'NasalBase':'NasalBase','NasalTarg':'NasalTarg','NasalBW':'NasalBW',
             'PitchRange':'PitchRange','StressGain':'StressGain','Intonation':'Intonation',

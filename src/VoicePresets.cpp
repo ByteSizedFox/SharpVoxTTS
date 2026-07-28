@@ -23,12 +23,6 @@ bool VoicePresets::TryGet(const std::string& name, VoiceData& outVoice) {
         outVoice.F4BW = 262;
         outVoice.F5Freq = 2510;
         outVoice.F5BW = 2025;
-        outVoice.F4pFreq = 4384;
-        outVoice.F4pBW = 154;
-        outVoice.F5pFreq = 4199;
-        outVoice.F5pBW = 97;
-        outVoice.F6pFreq = 4493;
-        outVoice.F6pBW = 149;
         outVoice.BwGain1 = 134;
         outVoice.BwGain2 = 120;
         outVoice.BwGain3 = 105;
@@ -57,12 +51,6 @@ bool VoicePresets::TryGet(const std::string& name, VoiceData& outVoice) {
         outVoice.F4BW = 255;
         outVoice.F5Freq = 4050;
         outVoice.F5BW = 290;
-        outVoice.F4pFreq = 3574;
-        outVoice.F4pBW = 148;
-        outVoice.F5pFreq = 4194;
-        outVoice.F5pBW = 104;
-        outVoice.F6pFreq = 4513;
-        outVoice.F6pBW = 156;
         outVoice.BwGain1 = 148;
         outVoice.BwGain2 = 109;
         outVoice.BwGain3 = 107;
@@ -91,12 +79,6 @@ bool VoicePresets::TryGet(const std::string& name, VoiceData& outVoice) {
         outVoice.F4BW = 250;
         outVoice.F5Freq = 2503;
         outVoice.F5BW = 2052;
-        outVoice.F4pFreq = 4026;
-        outVoice.F4pBW = 142;
-        outVoice.F5pFreq = 4196;
-        outVoice.F5pBW = 101;
-        outVoice.F6pFreq = 4499;
-        outVoice.F6pBW = 142;
         outVoice.BwGain1 = 136;
         outVoice.BwGain2 = 130;
         outVoice.BwGain3 = 100;
@@ -125,12 +107,6 @@ bool VoicePresets::TryGet(const std::string& name, VoiceData& outVoice) {
         outVoice.F4BW = 275;
         outVoice.F5Freq = 4280;
         outVoice.F5BW = 315;
-        outVoice.F4pFreq = 3714;
-        outVoice.F4pBW = 157;
-        outVoice.F5pFreq = 4210;
-        outVoice.F5pBW = 92;
-        outVoice.F6pFreq = 4503;
-        outVoice.F6pBW = 150;
         outVoice.BwGain1 = 126;
         outVoice.BwGain2 = 107;
         outVoice.BwGain3 = 118;
@@ -159,12 +135,6 @@ bool VoicePresets::TryGet(const std::string& name, VoiceData& outVoice) {
         outVoice.F4BW = 270;
         outVoice.F5Freq = 2508;
         outVoice.F5BW = 2042;
-        outVoice.F4pFreq = 4464;
-        outVoice.F4pBW = 149;
-        outVoice.F5pFreq = 4203;
-        outVoice.F5pBW = 106;
-        outVoice.F6pFreq = 4507;
-        outVoice.F6pBW = 153;
         outVoice.BwGain1 = 138;
         outVoice.BwGain2 = 120;
         outVoice.BwGain3 = 103;
@@ -209,12 +179,6 @@ bool VoicePresets::TryGet(const std::string& name, VoiceData& outVoice) {
         outVoice.F4BW = 240;
         outVoice.F5Freq = 3780;
         outVoice.F5BW = 265;
-        outVoice.F4pFreq = 3415;
-        outVoice.F4pBW = 152;
-        outVoice.F5pFreq = 4198;
-        outVoice.F5pBW = 100;
-        outVoice.F6pFreq = 4508;
-        outVoice.F6pBW = 150;
         outVoice.BwGain1 = 136;
         outVoice.BwGain2 = 112;
         outVoice.BwGain3 = 101;
@@ -243,12 +207,6 @@ bool VoicePresets::TryGet(const std::string& name, VoiceData& outVoice) {
         outVoice.F4BW = 200;
         outVoice.F5Freq = 3620;
         outVoice.F5BW = 238;
-        outVoice.F4pFreq = 3142;
-        outVoice.F4pBW = 155;
-        outVoice.F5pFreq = 4192;
-        outVoice.F5pBW = 97;
-        outVoice.F6pFreq = 4496;
-        outVoice.F6pBW = 147;
         outVoice.BwGain1 = 142;
         outVoice.BwGain2 = 111;
         outVoice.BwGain3 = 109;
@@ -302,12 +260,6 @@ bool VoicePresets::TryGet(const std::string& name, VoiceData& outVoice) {
         outVoice.OQStressLink = 0;
         outVoice.OQF0Link = 0;
         outVoice.PitchOffsetHz = 0;
-        outVoice.F4pFreq = 3661;
-        outVoice.F4pBW = 214;
-        outVoice.F5pFreq = 3800;
-        outVoice.F5pBW = 200;
-        outVoice.F6pFreq = 4500;
-        outVoice.F6pBW = 150;
         outVoice.NasalAmt = 0;
         outVoice.VGain = 60;
         return true;
@@ -326,12 +278,6 @@ bool VoicePresets::TryGet(const std::string& name, VoiceData& outVoice) {
         outVoice.F4BW = 2030;
         outVoice.F5Freq = 2508;
         outVoice.F5BW = 2038;
-        outVoice.F4pFreq = 2514;
-        outVoice.F4pBW = 144;
-        outVoice.F5pFreq = 4204;
-        outVoice.F5pBW = 99;
-        outVoice.F6pFreq = 4502;
-        outVoice.F6pBW = 151;
         outVoice.BwGain1 = 138;
         outVoice.BwGain2 = 128;
         outVoice.BwGain3 = 109;
@@ -360,12 +306,6 @@ bool VoicePresets::TryGet(const std::string& name, VoiceData& outVoice) {
         outVoice.F4BW = 420;
         outVoice.F5Freq = 2508;
         outVoice.F5BW = 2057;
-        outVoice.F4pFreq = 4492;
-        outVoice.F4pBW = 146;
-        outVoice.F5pFreq = 4199;
-        outVoice.F5pBW = 100;
-        outVoice.F6pFreq = 4507;
-        outVoice.F6pBW = 150;
         outVoice.BwGain1 = 138;
         outVoice.BwGain2 = 115;
         outVoice.BwGain3 = 111;
@@ -433,12 +373,6 @@ bool VoicePresets::SetParam(VoiceData& v, const std::string& name, float value) 
     else if (name == "f4bw")           { v.F4BW             = clamp(value,   10,   3000); }
     else if (name == "f5freq")         { v.F5Freq           = clamp(value,  100,   7000); }
     else if (name == "f5bw")           { v.F5BW             = clamp(value,   10,   3000); }
-    else if (name == "f4pfreq")        { v.F4pFreq          = clamp(value,  100,   7000); }
-    else if (name == "f4pbw")          { v.F4pBW            = clamp(value,   10,   3000); }
-    else if (name == "f5pfreq")        { v.F5pFreq          = clamp(value,  100,   7000); }
-    else if (name == "f5pbw")          { v.F5pBW            = clamp(value,   10,   3000); }
-    else if (name == "f6pfreq")        { v.F6pFreq          = clamp(value,  100,   7000); }
-    else if (name == "f6pbw")          { v.F6pBW            = clamp(value,   10,   3000); }
     else if (name == "nasalbase")      { v.NasalBase        = clamp(value,  100,    800); }
     else if (name == "nasaltarg")      { v.NasalTarg        = clamp(value,  100,    800); }
     else if (name == "nasalbw")        { v.NasalBW          = clamp(value,   10,    500); }

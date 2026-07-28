@@ -181,12 +181,6 @@ void SharpVoxSpeaker::SetPreset(VoicePreset value) {
     _lipRounding = v.LipRounding;
     _f4Freq = v.F4Freq;
     _f4BW = v.F4BW;
-    _f4pFreq = v.F4pFreq;
-    _f4pBW = v.F4pBW;
-    _f5pFreq = v.F5pFreq;
-    _f5pBW = v.F5pBW;
-    _f6pFreq = v.F6pFreq;
-    _f6pBW = v.F6pBW;
     _bwGain1 = v.BwGain1;
     _bwGain2 = v.BwGain2;
     _bwGain3 = v.BwGain3;
@@ -254,12 +248,6 @@ VoiceData SharpVoxSpeaker::BuildVoice() {
             v.F5BW = static_cast<int16_t>(GetF5BW());
             v.F4Freq = static_cast<int16_t>(GetF4Freq());
             v.F4BW = static_cast<int16_t>(GetF4BW());
-            v.F4pFreq = static_cast<int16_t>(GetF4pFreq());
-            v.F4pBW = static_cast<int16_t>(GetF4pBW());
-            v.F5pFreq = static_cast<int16_t>(GetF5pFreq());
-            v.F5pBW = static_cast<int16_t>(GetF5pBW());
-            v.F6pFreq = static_cast<int16_t>(GetF6pFreq());
-            v.F6pBW = static_cast<int16_t>(GetF6pBW());
             v.BwGain1 = static_cast<int16_t>(GetBwGain1());
             v.BwGain2 = static_cast<int16_t>(GetBwGain2());
             v.BwGain3 = static_cast<int16_t>(GetBwGain3());

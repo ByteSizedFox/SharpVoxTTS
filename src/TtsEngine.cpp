@@ -329,8 +329,8 @@ namespace SharpVox {
 #endif
         int16_t lo = _voice.LarynxOffset;
         // Parallel frication bank: baseline formants scaled by TractScale (small
-        // tract -> higher frication), per-voice F4p/F5p/F6p ignored. F6pBW=700 is
-        // the wide anti-whistle shelf.
+        // tract -> higher frication). Not voice-tunable; user control was retired
+        // since it harms intelligibility. F6pBW=700 is the wide anti-whistle shelf.
         float ts = _voice.TractScale > 0 ? _voice.TractScale : 1.0f;
         int16_t f4p = (int16_t)clamp11<int32_t>((int32_t)(3650 * ts) + lo, 100, 8000);
         int16_t f5p = (int16_t)clamp11<int32_t>((int32_t)(4200 * ts) + lo, 100, 8000);

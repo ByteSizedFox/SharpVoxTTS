@@ -227,12 +227,6 @@ static bool TryLoadVoiceJson(const std::string& name, VoiceData& out) {
     v.F4BW = static_cast<int16_t>(getInt("F4BW", v.F4BW));
     v.F5Freq = static_cast<int16_t>(getInt("F5Freq", v.F5Freq));
     v.F5BW = static_cast<int16_t>(getInt("F5BW", v.F5BW));
-    v.F4pFreq = static_cast<int16_t>(getInt("F4pFreq", v.F4pFreq));
-    v.F4pBW = static_cast<int16_t>(getInt("F4pBW", v.F4pBW));
-    v.F5pFreq = static_cast<int16_t>(getInt("F5pFreq", v.F5pFreq));
-    v.F5pBW = static_cast<int16_t>(getInt("F5pBW", v.F5pBW));
-    v.F6pFreq = static_cast<int16_t>(getInt("F6pFreq", v.F6pFreq));
-    v.F6pBW = static_cast<int16_t>(getInt("F6pBW", v.F6pBW));
     v.BwGain1 = static_cast<int16_t>(getInt("BwGain1", v.BwGain1));
     v.BwGain2 = static_cast<int16_t>(getInt("BwGain2", v.BwGain2));
     v.BwGain3 = static_cast<int16_t>(getInt("BwGain3", v.BwGain3));

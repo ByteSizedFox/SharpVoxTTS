@@ -239,12 +239,6 @@ public:
             else if (name == "F4BW")           { _speaker.SetF4BW(iv); }
             else if (name == "F5Freq")         { _speaker.SetF5Freq(iv); }
             else if (name == "F5BW")           { _speaker.SetF5BW(iv); }
-            else if (name == "F4pFreq")        { _speaker.SetF4pFreq(iv); }
-            else if (name == "F4pBW")          { _speaker.SetF4pBW(iv); }
-            else if (name == "F5pFreq")        { _speaker.SetF5pFreq(iv); }
-            else if (name == "F5pBW")          { _speaker.SetF5pBW(iv); }
-            else if (name == "F6pFreq")        { _speaker.SetF6pFreq(iv); }
-            else if (name == "F6pBW")          { _speaker.SetF6pBW(iv); }
             else if (name == "BwGain1")        { _speaker.SetBwGain1(iv); }
             else if (name == "BwGain2")        { _speaker.SetBwGain2(iv); }
             else if (name == "BwGain3")        { _speaker.SetBwGain3(iv); }
@@ -534,9 +528,6 @@ public:
         KS("NGain",   _speaker.GetNGain());
         KS("F4Freq",  _speaker.GetF4Freq());  KS("F4BW",  _speaker.GetF4BW());
         KS("F5Freq",  _speaker.GetF5Freq());  KS("F5BW",  _speaker.GetF5BW());
-        KS("F4pFreq", _speaker.GetF4pFreq()); KS("F4pBW", _speaker.GetF4pBW());
-        KS("F5pFreq", _speaker.GetF5pFreq()); KS("F5pBW", _speaker.GetF5pBW());
-        KS("F6pFreq", _speaker.GetF6pFreq()); KS("F6pBW", _speaker.GetF6pBW());
         KS("BwGain1", _speaker.GetBwGain1()); KS("BwGain2", _speaker.GetBwGain2()); KS("BwGain3", _speaker.GetBwGain3());
         KS("NasalBase", _speaker.GetNasalBase()); KS("NasalTarg", _speaker.GetNasalTarg()); KS("NasalBW", _speaker.GetNasalBW());
         KS("PitchRange",   _speaker.GetPitchRange());
@@ -598,12 +589,6 @@ public:
         addI("f4bw",            _speaker.GetF4BW(),                 (int32_t)def.F4BW);
         addI("f5freq",          _speaker.GetF5Freq(),               (int32_t)def.F5Freq);
         addI("f5bw",            _speaker.GetF5BW(),                 (int32_t)def.F5BW);
-        addI("f4pfreq",         _speaker.GetF4pFreq(),              (int32_t)def.F4pFreq);
-        addI("f4pbw",           _speaker.GetF4pBW(),                (int32_t)def.F4pBW);
-        addI("f5pfreq",         _speaker.GetF5pFreq(),              (int32_t)def.F5pFreq);
-        addI("f5pbw",           _speaker.GetF5pBW(),                (int32_t)def.F5pBW);
-        addI("f6pfreq",         _speaker.GetF6pFreq(),              (int32_t)def.F6pFreq);
-        addI("f6pbw",           _speaker.GetF6pBW(),                (int32_t)def.F6pBW);
         addI("nasalbase",       _speaker.GetNasalBase(),            (int32_t)def.NasalBase);
         addI("nasaltarg",       _speaker.GetNasalTarg(),            (int32_t)def.NasalTarg);
         addI("nasalbw",         _speaker.GetNasalBW(),              (int32_t)def.NasalBW);
@@ -692,9 +677,6 @@ public:
             _speaker.SetNGain(getInt("NGain",  _speaker.GetNGain()));
             _speaker.SetF4Freq(getInt("F4Freq", _speaker.GetF4Freq())); _speaker.SetF4BW(getInt("F4BW", _speaker.GetF4BW()));
             _speaker.SetF5Freq(getInt("F5Freq", _speaker.GetF5Freq())); _speaker.SetF5BW(getInt("F5BW", _speaker.GetF5BW()));
-            _speaker.SetF4pFreq(getInt("F4pFreq", _speaker.GetF4pFreq())); _speaker.SetF4pBW(getInt("F4pBW", _speaker.GetF4pBW()));
-            _speaker.SetF5pFreq(getInt("F5pFreq", _speaker.GetF5pFreq())); _speaker.SetF5pBW(getInt("F5pBW", _speaker.GetF5pBW()));
-            _speaker.SetF6pFreq(getInt("F6pFreq", _speaker.GetF6pFreq())); _speaker.SetF6pBW(getInt("F6pBW", _speaker.GetF6pBW()));
             _speaker.SetBwGain1(getInt("BwGain1", _speaker.GetBwGain1()));
             _speaker.SetBwGain2(getInt("BwGain2", _speaker.GetBwGain2()));
             _speaker.SetBwGain3(getInt("BwGain3", _speaker.GetBwGain3()));
@@ -816,9 +798,6 @@ private:
         KS("NGain",   _speaker.GetNGain());
         KS("F4Freq",  _speaker.GetF4Freq());  KS("F4BW",  _speaker.GetF4BW());
         KS("F5Freq",  _speaker.GetF5Freq());  KS("F5BW",  _speaker.GetF5BW());
-        KS("F4pFreq", _speaker.GetF4pFreq()); KS("F4pBW", _speaker.GetF4pBW());
-        KS("F5pFreq", _speaker.GetF5pFreq()); KS("F5pBW", _speaker.GetF5pBW());
-        KS("F6pFreq", _speaker.GetF6pFreq()); KS("F6pBW", _speaker.GetF6pBW());
         KS("BwGain1", _speaker.GetBwGain1()); KS("BwGain2", _speaker.GetBwGain2()); KS("BwGain3", _speaker.GetBwGain3());
         KS("NasalBase", _speaker.GetNasalBase()); KS("NasalTarg", _speaker.GetNasalTarg()); KS("NasalBW", _speaker.GetNasalBW());
         KS("PitchRange",   _speaker.GetPitchRange());

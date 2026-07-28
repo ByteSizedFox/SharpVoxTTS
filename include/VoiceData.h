@@ -38,12 +38,6 @@ struct VoiceData {
     int16_t F4BW = 650;
     int16_t F5Freq = 4000;
     int16_t F5BW = 750;
-    int16_t F4pFreq = 3650;
-    int16_t F4pBW = 150;
-    int16_t F5pFreq = 4200;
-    int16_t F5pBW = 100;
-    int16_t F6pFreq = 6000;
-    int16_t F6pBW = 700;
 
     int16_t NasalBase = 330;
     int16_t NasalTarg = 400;
@@ -104,7 +98,6 @@ struct VoiceData {
         v.F4BW = 50;
         v.F5Freq = 4500;
         v.F5BW = 250;
-        v.F4pFreq = 4500;
         v.BwGain1 = 100;
         v.BwGain3 = 50;
         v.NGain = 200;

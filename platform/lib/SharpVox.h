@@ -168,24 +168,6 @@ public:
     int32_t GetF4BW() const { return _f4BW; }
     void SetF4BW(int32_t v) { _f4BW = v; MarkCustom(); }
 
-    int32_t GetF4pFreq() const { return _f4pFreq; }
-    void SetF4pFreq(int32_t v) { _f4pFreq = v; MarkCustom(); }
-
-    int32_t GetF4pBW() const { return _f4pBW; }
-    void SetF4pBW(int32_t v) { _f4pBW = v; MarkCustom(); }
-
-    int32_t GetF5pFreq() const { return _f5pFreq; }
-    void SetF5pFreq(int32_t v) { _f5pFreq = v; MarkCustom(); }
-
-    int32_t GetF5pBW() const { return _f5pBW; }
-    void SetF5pBW(int32_t v) { _f5pBW = v; MarkCustom(); }
-
-    int32_t GetF6pFreq() const { return _f6pFreq; }
-    void SetF6pFreq(int32_t v) { _f6pFreq = v; MarkCustom(); }
-
-    int32_t GetF6pBW() const { return _f6pBW; }
-    void SetF6pBW(int32_t v) { _f6pBW = v; MarkCustom(); }
-
     int32_t GetBwGain1() const { return _bwGain1; }
     void SetBwGain1(int32_t v) { _bwGain1 = v; MarkCustom(); }
 
@@ -295,12 +277,6 @@ private:
     int32_t _f5BW = 250;
     int32_t _f4Freq = 3000;
     int32_t _f4BW = 200;
-    int32_t _f4pFreq = 3600;
-    int32_t _f4pBW = 150;
-    int32_t _f5pFreq = 3750;
-    int32_t _f5pBW = 100;
-    int32_t _f6pFreq = 4500;
-    int32_t _f6pBW = 150;
     int32_t _bwGain1 = 150;
     int32_t _bwGain2 = 100;
     int32_t _bwGain3 = 100;
