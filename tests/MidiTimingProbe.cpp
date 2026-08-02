@@ -66,7 +66,8 @@ int main(int argc, char** argv) {
         speaker.SpeakWithEvents(
             text,
             [](SharpVox::SharpVoxSpeaker*, const int16_t*, int32_t,
-               const SharpVox::PhonemeEvent* ev, int32_t count, void* ud) {
+               const SharpVox::PhonemeEvent* ev, int32_t count,
+               const SharpVox::FormantEvent*, int32_t, void* ud) {
                 auto* out = static_cast<std::vector<SharpVox::PhonemeEvent>*>(ud);
                 out->insert(out->end(), ev, ev + count);
             },

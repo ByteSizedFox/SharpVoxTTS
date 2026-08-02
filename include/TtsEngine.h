@@ -25,6 +25,16 @@ namespace SharpVox {
             : Phoneme(phoneme), TimeSeconds(timeSeconds), IsWordStart(isWordStart) {}
     };
 
+    // stores formant event data
+    struct FormantEvent {
+        float TimeSeconds;
+        float F1;
+        float F2;
+        float F3;
+        FormantEvent(float timeSeconds, float f1, float f2, float f3)
+            : TimeSeconds(timeSeconds), F1(f1), F2(f2), F3(f3) {}
+    };
+
     // Top-level TTS API. Converts text to audio via the full pipeline:
     //   Phonemizer (text -> PhonemeToken[]) -> AudioProcessor (phoneme processing) ->
     //   SpeechRenderer (formant targets) -> KlattSynthesizerFP (PCM samples).
@@ -98,12 +108,13 @@ namespace SharpVox {
                    void* userdata = nullptr);
 
         // Streams audio chunks together with the phoneme events whose onsets fall
-        // inside each chunk (often 0 or 1). TimeSeconds stays absolute from the start
-        // of the utterance, so consumers can rebuild the full timeline by appending.
+        // inside each chunk (often 0 or 1), and the 60hz formant events
         void SpeakWithEvents(
             const std::string& text,
             void (*onChunk)(const int16_t* buf, int32_t len,
-                            const PhonemeEvent* events, int32_t count, void* userdata),
+                            const PhonemeEvent* events, int32_t count,
+                            const FormantEvent* formants, int32_t formantCount,
+                            void* userdata),
             void* userdata = nullptr);
 
     private:
@@ -124,7 +135,8 @@ namespace SharpVox {
                                      std::function<void(const int16_t*, int32_t)> onBuffer);
 
         void ProcessSentenceStreamingFromPlan(const ClausePlan& plan,
-                                              std::function<void(const int16_t*, int32_t)> onBuffer);
+                                              std::function<void(const int16_t*, int32_t)> onBuffer,
+                                              std::function<void(int32_t, const Frame&)> onFrame = nullptr);
 
 
         void ApplyCommand(const EmbeddedCmd::VoiceCommand& cmd);

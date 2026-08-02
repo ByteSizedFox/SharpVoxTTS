@@ -276,7 +276,8 @@ public:
             js_init_audio(_sampleRate);
             _speaker.SpeakWithEvents(buildSynText(text),
                 [](SharpVoxSpeaker* /*speaker*/, const int16_t* buf, int32_t len,
-                   const PhonemeEvent* /*events*/, int32_t /*count*/, void* ud) {
+                   const PhonemeEvent* /*events*/, int32_t /*count*/,
+                   const FormantEvent* /*formants*/, int32_t /*formantCount*/, void* ud) {
                     auto* c = static_cast<Ctx*>(ud);
                     if (std::fabs(c->self->_outputVolume - 1.0f) > 0.001f) {
                         std::vector<int16_t> chunk(buf, buf + len);
@@ -372,7 +373,8 @@ public:
 
             _speaker.SpeakWithEvents(buildSynText(text),
                 [](SharpVoxSpeaker* /*speaker*/, const int16_t* buf, int32_t len,
-                   const PhonemeEvent* /*events*/, int32_t /*count*/, void* ud) {
+                   const PhonemeEvent* /*events*/, int32_t /*count*/,
+                   const FormantEvent* /*formants*/, int32_t /*formantCount*/, void* ud) {
                     auto* c = static_cast<Ctx*>(ud);
                     c->samples->insert(c->samples->end(), buf, buf + len);
                 },
@@ -444,7 +446,8 @@ public:
             std::vector<int16_t> samples;
             _speaker.SpeakWithEvents(text,
                 [](SharpVoxSpeaker* /*speaker*/, const int16_t* buf, int32_t len,
-                   const PhonemeEvent* /*events*/, int32_t /*count*/, void* ud) {
+                   const PhonemeEvent* /*events*/, int32_t /*count*/,
+                   const FormantEvent* /*formants*/, int32_t /*formantCount*/, void* ud) {
                     auto* s = static_cast<std::vector<int16_t>*>(ud);
                     s->insert(s->end(), buf, buf + len);
                 },

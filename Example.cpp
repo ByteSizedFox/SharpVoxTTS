@@ -4,6 +4,7 @@
 
 using SharpVox::SharpVoxSpeaker;
 using SharpVox::PhonemeEvent;
+using SharpVox::FormantEvent;
 
 static void write_wav_streaming(const char* path, SharpVoxSpeaker& speaker, const char* text) {
     FILE* f = fopen(path, "wb");
@@ -35,7 +36,8 @@ static void speak_with_phonemes(SharpVoxSpeaker& speaker, const char* text) {
 
     speaker.SpeakWithEvents(text,
         [](SharpVoxSpeaker* /*speaker*/, const short* buf, int len,
-           const PhonemeEvent* events, int32_t count, void* ud) {
+           const PhonemeEvent* events, int32_t count,
+           const FormantEvent* /*formants*/, int32_t /*formantCount*/, void* ud) {
             auto* s = static_cast<std::vector<short>*>(ud);
             s->insert(s->end(), buf, buf + len);
             for (int32_t i = 0; i < count; i++) {

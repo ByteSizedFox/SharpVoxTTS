@@ -44,7 +44,8 @@ void sharpvox_speak(const char* text, sharpvox_buffer_cb on_buffer, void* userda
     s_engine->SpeakWithEvents(
         text,
         [](const int16_t* buf, int32_t len,
-           const SharpVox::PhonemeEvent* ev, int32_t n, void* ud) {
+           const SharpVox::PhonemeEvent* ev, int32_t n,
+           const SharpVox::FormantEvent*, int32_t, void* ud) {
             auto* c = static_cast<SpeakCtx*>(ud);
             // report the phoneme sounding at the start of this chunk
             float t0 = (float)c->sample_pos / 22050.0f;

@@ -38,7 +38,8 @@ struct SharpVoxSpeaker::SpeakCtx {
     SharpVoxSpeaker* speaker;
     void (*userOnBuffer)(SharpVoxSpeaker*, const int16_t*, int32_t, void*);
     void (*userOnChunk)(SharpVoxSpeaker*, const int16_t*, int32_t,
-                        const PhonemeEvent*, int32_t, void*);
+                        const PhonemeEvent*, int32_t,
+                        const FormantEvent*, int32_t, void*);
     void* userdata;
 };
 
@@ -65,12 +66,15 @@ void SharpVoxSpeaker::SpeakBufAdapter(const int16_t* buf, int32_t len, void* ud)
 }
 
 void SharpVoxSpeaker::SpeakChunkAdapter(const int16_t* buf, int32_t len,
-                                        const PhonemeEvent* events, int32_t count, void* ud) {
+                                        const PhonemeEvent* events, int32_t count,
+                                        const FormantEvent* formants, int32_t formantCount, void* ud) {
     auto* c = static_cast<SpeakCtx*>(ud);
     auto& evs = c->speaker->_phonemeEvents;
     evs.insert(evs.end(), events, events + count);
+    auto& fes = c->speaker->_formantEvents;
+    fes.insert(fes.end(), formants, formants + formantCount);
     const int16_t* out = c->speaker->ScaleForVolume(buf, len);
-    c->userOnChunk(c->speaker, out, len, events, count, c->userdata);
+    c->userOnChunk(c->speaker, out, len, events, count, formants, formantCount, c->userdata);
 }
 
 void SharpVoxSpeaker::Speak(const std::string& text,
@@ -89,11 +93,14 @@ void SharpVoxSpeaker::Speak(const std::string& text,
 
 void SharpVoxSpeaker::SpeakWithEvents(const std::string& text,
                                        void (*onChunk)(SharpVoxSpeaker*, const int16_t*, int32_t,
-                                                       const PhonemeEvent*, int32_t, void*),
+                                                       const PhonemeEvent*, int32_t,
+                                                       const FormantEvent*, int32_t, void*),
                                        void* userdata) {
     _isSpeaking = true;
     _phonemeEvents.clear();
+    _formantEvents.clear();
     _nextPhonemeIndex = 0;
+    _nextFormantIndex = 0;
     _pollElapsed = 0.0f;
     try {
         SpeakCtx ctx { this, nullptr, onChunk, userdata };
@@ -106,13 +113,24 @@ void SharpVoxSpeaker::SpeakWithEvents(const std::string& text,
 }
 
 void SharpVoxSpeaker::PollAbsolute(float absoluteSeconds) {
-    if (!OnPhoneme || _nextPhonemeIndex >= static_cast<int32_t>(_phonemeEvents.size())) {
+    if (_nextPhonemeIndex >= static_cast<int32_t>(_phonemeEvents.size()) &&
+        _nextFormantIndex >= static_cast<int32_t>(_formantEvents.size())) {
         return;
     }
     _pollElapsed = absoluteSeconds;
     while (_nextPhonemeIndex < static_cast<int32_t>(_phonemeEvents.size()) &&
            _phonemeEvents[_nextPhonemeIndex].TimeSeconds <= _pollElapsed) {
-        OnPhoneme(_phonemeEvents[_nextPhonemeIndex++]);
+        if (OnPhoneme) {
+            OnPhoneme(_phonemeEvents[_nextPhonemeIndex]);
+        }
+        _nextPhonemeIndex++;
+    }
+    while (_nextFormantIndex < static_cast<int32_t>(_formantEvents.size()) &&
+           _formantEvents[_nextFormantIndex].TimeSeconds <= _pollElapsed) {
+        if (OnFormant) {
+            OnFormant(_formantEvents[_nextFormantIndex]);
+        }
+        _nextFormantIndex++;
     }
 }
 

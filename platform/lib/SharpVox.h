@@ -24,11 +24,14 @@ public:
     void Speak(const std::string& text,
                void (*onBuffer)(SharpVoxSpeaker* speaker, const int16_t* buf, int32_t len, void* userdata),
                void* userdata = nullptr);
-    // Streams audio chunks with the phoneme events whose onsets fall inside each chunk.
-    // The full event list accumulates in PhonemeEvents() as chunks are delivered.
+    // Streams audio chunks with the phoneme events whose onsets fall inside each
+    // chunk, plus the 60 Hz formant stream. The full lists accumulate in
+    // PhonemeEvents() and FormantEvents() as chunks are delivered.
     void SpeakWithEvents(const std::string& text,
                          void (*onChunk)(SharpVoxSpeaker* speaker, const int16_t* buf, int32_t len,
-                                         const PhonemeEvent* events, int32_t count, void* userdata),
+                                         const PhonemeEvent* events, int32_t count,
+                                         const FormantEvent* formants, int32_t formantCount,
+                                         void* userdata),
                          void* userdata = nullptr);
 
     // Polls pending phoneme events up to absoluteSeconds and fires OnPhoneme for each
@@ -36,8 +39,11 @@ public:
 
     // Callback fired by PollAbsolute for each due phoneme event
     std::function<void(const PhonemeEvent&)> OnPhoneme;
+    // additional formant callback
+    std::function<void(const FormantEvent&)> OnFormant;
 
     const std::vector<PhonemeEvent>& PhonemeEvents() const { return _phonemeEvents; }
+    const std::vector<FormantEvent>& FormantEvents() const { return _formantEvents; }
 
     void SetVoice(VoiceData voice);
     void ApplyVoice();
@@ -235,7 +241,9 @@ private:
     bool _isSpeaking = false;
 
     std::vector<PhonemeEvent> _phonemeEvents;
+    std::vector<FormantEvent> _formantEvents;
     int32_t _nextPhonemeIndex = 0;
+    int32_t _nextFormantIndex = 0;
     float _pollElapsed = 0.0f;
 
     bool _applyingPreset = false;
@@ -315,7 +323,8 @@ private:
     struct SpeakCtx;
     static void SpeakBufAdapter(const int16_t* buf, int32_t len, void* ud);
     static void SpeakChunkAdapter(const int16_t* buf, int32_t len,
-                                  const PhonemeEvent* events, int32_t count, void* ud);
+                                  const PhonemeEvent* events, int32_t count,
+                                  const FormantEvent* formants, int32_t formantCount, void* ud);
 
     const int16_t* ScaleForVolume(const int16_t* buf, int32_t len);
 };
