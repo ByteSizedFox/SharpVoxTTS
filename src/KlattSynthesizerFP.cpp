@@ -93,6 +93,54 @@ static inline float GlotPulse(float tau) {
          + kGlotTilt * (tau * (0.33333333f - tau * 0.5f));
 }
 
+// polyBLEP band-limited value-step correction (t = phase distance in [0,1), dt = f0/fs).
+// Scale by step/2 at the call site.
+static inline float PolyBlep(float t, float dt) {
+    if (t < dt) {
+        float q = t / dt;
+        return 2.0f * q - q * q - 1.0f;
+    }
+    if (t > 1.0f - dt) {
+        float q = (t - 1.0f) / dt;
+        return q * q + 2.0f * q + 1.0f;
+    }
+    return 0.0f;
+}
+
+// integral of polyBLEP, for slope kinks
+static inline float PolyBlamp(float t, float dt) {
+    if (t < dt) {
+        float q = t / dt;
+        float o = 1.0f - q;
+        return (dt / 3.0f) * o * o * o;
+    }
+    if (t > 1.0f - dt) {
+        float q = (t - 1.0f) / dt;
+        float o = 1.0f + q;
+        return (dt / 3.0f) * o * o * o;
+    }
+    return 0.0f;
+}
+
+// KLGLOTT pulse + polyBLEP/polyBLAMP corrections for its closure step and slope kinks
+// kills low sample rate foldback
+static inline float GlotPulseBL(int32_t phi, int32_t ne, int32_t phaseInc) {
+    float s = 0.0f;
+    if (phi < ne) {
+        s = GlotPulse((float)phi / (float)ne);
+    }
+    float dt = (float)phaseInc * (1.0f / 16777216.0f);
+    if (dt > 0.0f && dt < 1.0f) {
+        float tCl = (float)((phi - ne) & 0xFFFFFF) * (1.0f / 16777216.0f);
+        float tOn = (float)(phi & 0xFFFFFF) * (1.0f / 16777216.0f);
+        float invOq = 16777216.0f / (float)ne;
+        s += (1.0f / 120.0f) * PolyBlep(tCl, dt)
+           + 0.9667f * invOq * PolyBlamp(tCl, dt)
+           - 0.0333f * invOq * PolyBlamp(tOn, dt);
+    }
+    return s;
+}
+
 //  Constructor
 
 KlattSynthesizerFP::KlattSynthesizerFP(int32_t sampleRate) {
@@ -170,7 +218,6 @@ KlattSynthesizerFP::KlattSynthesizerFP(int32_t sampleRate) {
     _glotPhase=_glotPhaseInc=0;
     _chorusPhase=_chorusPhaseInc=0;
     _Ne_fp = _chorusNe_fp = 655360;
-    _glotInvNe_f = _chorusInvNe_f = 1.0f / 655360.0f;
     _voiceGain_f = 0.0f;
 #ifdef SHARPVOX_SAMPLED_GLOT
     _useSampledGlot = false;
@@ -313,8 +360,6 @@ void KlattSynthesizerFP::ComputeGlotWave(int16_t vGain) {
 
     _Ne_fp       = std::max((int32_t)655360,  std::min((int32_t)16056320, (int32_t)roundf(Oq       * 16777216.0f)));
     _chorusNe_fp = std::max((int32_t)655360,  std::min((int32_t)16056320, (int32_t)roundf(chorusOq * 16777216.0f)));
-    _glotInvNe_f   = 1.0f / (float)_Ne_fp;
-    _chorusInvNe_f = 1.0f / (float)_chorusNe_fp;
     _voiceGain_f   = (vGain > 0) ? (vGain * 1140.0f) : 0.0f;
 }
 
@@ -706,7 +751,6 @@ void KlattSynthesizerFP::SynthesizeFrame(Frame frame, int16_t* outputBuffer, int
 
                 float fryFactor = (FryAmount > 0) ? std::max(0.05f, 1.0f - FryAmount * 0.003f) : 1.0f;
                 int32_t effNe = (int32_t)(_Ne_fp * fryFactor);
-                float effInvNe = (effNe > 0) ? (1.0f / (float)effNe) : _glotInvNe_f;
 
 #ifdef SHARPVOX_SAMPLED_GLOT
                 if (_useSampledGlot && _sgBufSize > 0) {
@@ -721,8 +765,7 @@ void KlattSynthesizerFP::SynthesizeFrame(Frame frame, int16_t* outputBuffer, int
 #endif
                 {
                     int32_t phi = (int32_t)_glotPhase;
-                    float tau = (float)phi * effInvNe;
-                    glotSample = (phi < effNe) ? (GlotPulse(tau) * _voiceGain_f) : 0.0f;
+                    glotSample = GlotPulseBL(phi, effNe, _glotPhaseInc) * _voiceGain_f;
                 }
 #ifdef SHARPVOX_SAMPLED_GLOT
                 if (VoiceChorus != 0 && !_useSampledGlot) {
@@ -731,10 +774,8 @@ void KlattSynthesizerFP::SynthesizeFrame(Frame frame, int16_t* outputBuffer, int
 #endif
                     _chorusPhase = (_chorusPhaseInc+_chorusPhase) & 0xFFFFFF;
                     int32_t phi2 = (int32_t)_chorusPhase;
-                    float tau2 = (float)phi2 * _chorusInvNe_f;
-                    float chorus = (phi2 < _chorusNe_fp)
-                        ? (GlotPulse(tau2) * _voiceGain_f)
-                        : 0.0f;
+                    float chorus = GlotPulseBL(phi2, _chorusNe_fp, _chorusPhaseInc)
+                                   * _voiceGain_f;
                     glotSample = (glotSample + chorus) * 0.5f;
                 }
 
@@ -745,18 +786,19 @@ void KlattSynthesizerFP::SynthesizeFrame(Frame frame, int16_t* outputBuffer, int
 #endif
                     _diploPhase = (_diploPhase + (_glotPhaseInc >> 1)) & 0xFFFFFF;
                     int32_t phiD = _diploPhase;
-                    if (phiD < effNe) {
-                        float tauD = (float)phiD * effInvNe;
-                        glotSample += GlotPulse(tauD) * _voiceGain_f * (Diplophonia * 0.007f);
-                    }
+                    glotSample += GlotPulseBL(phiD, effNe, _glotPhaseInc >> 1)
+                                  * _voiceGain_f * (Diplophonia * 0.007f);
                 }
 
-                // Spectral tilt: 1-pole IIR lowpass y[n] = (1-d)*x[n] + d*y[n-1].
-                // Matches float variant. Clamp d to 0.95 (= 31130 Q15).
+                // 1-pole lowpass with corner held at the 22050 anchor
+                // (d = 1 - (1-dBase)*22050/fs), so timbre is rate-invariant.
                 int32_t eTilt = _tilt_q15 + frameTiltBias_q15;
                 if (eTilt >  31130) eTilt =  31130;
                 if (eTilt <      0) eTilt =      0;
-                float d = (float)eTilt * (1.0f / 32768.0f);
+                float dBase = (float)eTilt * (1.0f / 32768.0f);
+                float d = 1.0f - (1.0f - dBase) * ((float)KDefaultSampleRate / (float)_sampleRate);
+                if (d < 0.0f)   d = 0.0f;
+                if (d > 0.995f) d = 0.995f;
                 float tiltedSample = (1.0f - d) * glotSample + d * _tiltPrev;
                 _tiltPrev = tiltedSample;
 

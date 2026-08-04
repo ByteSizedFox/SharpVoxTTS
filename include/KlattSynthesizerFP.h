@@ -178,11 +178,9 @@ namespace SharpVox {
         int32_t _chorusPhase;
         int32_t _chorusPhaseInc;
         // Inline polynomial parameters (replace lookup tables — eliminates staircase quantization).
-        int32_t _Ne_fp;          // open-phase end in 24-bit phase units
-        int32_t _chorusNe_fp;
-        float   _glotInvNe_f;   // 1.0f / _Ne_fp
-        float   _chorusInvNe_f;
-        float   _voiceGain_f;   // vGain * 288.0f (matches float synth _lfGain)
+    int32_t _Ne_fp;          // open-phase end in 24-bit phase units
+    int32_t _chorusNe_fp;
+    float   _voiceGain_f;   // vGain * 288.0f (matches float synth _lfGain)
 
 #ifdef SHARPVOX_SAMPLED_GLOT
         std::vector<float> _sgBuf;     // resampled glottal source, normalised to max|x|=1
