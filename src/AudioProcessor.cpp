@@ -225,27 +225,30 @@ namespace SharpVox {
             return 0;
         }
         int64_t freq, fk;
-        if (hz < 100) {
-            freq = hz << 3;
+        if (hz < 50) {
+            freq = hz << 4;
             fk = 0x000;
+        } else if (hz < 100) {
+            freq = hz << 3;
+            fk = 0x100;
         } else if (hz < 200) {
             freq = hz << 2;
-            fk = 0x100;
+            fk = 0x200;
         } else if (hz < 400) {
             freq = hz << 1;
-            fk = 0x200;
+            fk = 0x300;
         } else if (hz < 800) {
             freq = hz;
-            fk = 0x300;
+            fk = 0x400;
         } else if (hz < 1600) {
             freq = hz >> 1;
-            fk = 0x400;
+            fk = 0x500;
         } else if (hz < 3200) {
             freq = hz >> 2;
-            fk = 0x500;
+            fk = 0x600;
         } else {
             freq = hz >> 3;
-            fk = 0x600;
+            fk = 0x700;
         }
         int64_t ratio = ((freq - 400) * ratioK) >> 11;
         if (ratio < 0) {
