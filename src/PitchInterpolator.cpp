@@ -346,7 +346,7 @@ namespace SharpVox {
         // Head events land near half the peak (MITalk 2:1 rise:fall hat); nuclear
         // events land below the baseline (Tune A constant terminal value).
         if (isStepping && aRise > 0 && dRise > 0 && aFall > 0 && dFall > 0) {
-            int32_t landing = aRise - aFall;
+            int32_t landing = isNuclear ? (aRise - aFall) : 0;
             if (aRise > curExcursion) {
                 _tiltPhase = 1; // RISE
                 _tiltFrame = 0;
