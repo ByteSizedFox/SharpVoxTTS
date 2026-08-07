@@ -94,7 +94,7 @@ namespace SharpVox {
         // Buf1: raw phoneme stream from the front-end (LoadPhonemes).
         // Buf2: allophone-transformed stream (FillPhonBuf2).  Allocated at 2 buf1
         //       capacity to absorb any glottal-stop / plosive-release insertions.
-        // PitchBuf: Tilt events (FillPitchBuf).  Allocated at 6 buf1 capacity.
+        // PitchBuf: prosody events (FillPitchBuf) for PitchInterpolator.  6 buf1.
         // RampSteps: baseline declination steps across phrase resets.  Fixed at
         //            kMaxRamps because that bound is independent of clause length.
         std::vector<int16_t>  _phonBuf1;
@@ -160,6 +160,17 @@ namespace SharpVox {
         int16_t  _vpBreakStrength;
         int16_t  _vpEmphasisBoost;
         int32_t  _vocalConfidence;
+
+        // Fujisaki intonation model knobs (from VoiceData)
+        int64_t  _vpFujiPhraseAmp;            // Q16 nepers
+        int64_t  _vpFujiPrimaryAccentAmp;     // Q16 nepers
+        int64_t  _vpFujiHeadAccentAmp;        // Q16 nepers
+        int64_t  _vpFujiSecondaryAccentAmp;   // Q16 nepers
+        int64_t  _vpFujiEmphaticAccentAmp;    // Q16 nepers
+        int32_t  _vpFujiPitchCurveExpPct;
+        int32_t  _vpFujiMonoAccentDurScalePct;
+        int64_t  _vpFujiCompoundStep;         // Q16 nepers
+        int32_t  _vpFujiFinalDropPct;
 
         // State computed during pipeline
         int32_t  _phonBuf1InIndex;

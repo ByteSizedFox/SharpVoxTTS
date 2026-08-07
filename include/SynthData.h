@@ -112,6 +112,17 @@ namespace SharpVox {
         int64_t VpPitchRange;
         int16_t VpBaselinePitch;
 
+        // Fujisaki intonation model knobs (Q16 neper amplitudes / percent scales)
+        int64_t FujisakiPhraseAmpQ16;
+        int64_t FujisakiPrimaryAccentAmpQ16;
+        int64_t FujisakiHeadAccentAmpQ16;
+        int64_t FujisakiSecondaryAccentAmpQ16;
+        int64_t FujisakiEmphaticAccentAmpQ16;
+        int32_t FujisakiPitchCurveExpPct;
+        int32_t FujisakiMonoAccentDurScalePct;
+        int64_t FujisakiCompoundStepQ16;
+        int32_t FujisakiFinalDropPct;
+
         int64_t VibratoDepth1;
         int64_t VibratoDepth2;
         int64_t VibratoFreq;
@@ -149,6 +160,9 @@ namespace SharpVox {
         std::vector<int16_t> PitchBufTiltX64;
         std::vector<int16_t> PitchBufDuration;
 
+        // Clause-terminating punctuation (_Period_, _Quest_, ...; 0 = none)
+        int16_t EndPunctuation = 0;
+
         PitchState Pitch;
 
         static ClausePlan Create(
@@ -171,7 +185,8 @@ namespace SharpVox {
             std::vector<int16_t> pitchBufFlags,
             std::vector<int16_t> pitchBufTiltX64,
             std::vector<int16_t> pitchBufDuration,
-            PitchState pitch) {
+            PitchState pitch,
+            int16_t endPunctuation) {
             ClausePlan d;
             d.PhonBufInIndex = phonBufInIndex;
             d.PhonBuf = std::move(phonBuf);
@@ -192,6 +207,7 @@ namespace SharpVox {
             d.PitchBufFlags = std::move(pitchBufFlags);
             d.PitchBufTiltX64 = std::move(pitchBufTiltX64);
             d.PitchBufDuration = std::move(pitchBufDuration);
+            d.EndPunctuation = endPunctuation;
             d.Pitch = pitch;
             return d;
         }

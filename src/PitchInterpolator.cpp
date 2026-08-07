@@ -2,6 +2,7 @@
 #include "../include/SynthData.h"
 #include "../include/VoiceData.h"
 #include "../include/Tables.h"
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 
@@ -60,26 +61,49 @@ namespace SharpVox {
         _pbHold = kNeverHappens;
         _pbLowGain = false;
 
-        // Tilt state starts at rest
-        _tiltPhase = 0;
-        _tiltFrame = 0;
-        _tiltPhaseDur = 0;
-        _tiltA = 0;
-        _tiltAbs = 0;
-        _tiltHeldLevel = 0;
-        _tiltFallPending = false;
-        _tiltSmooth = 0;
+        // Fujisaki model knobs (Q16 neper amplitudes / percent scales)
+        _vpFujiPhraseAmp             = s.FujisakiPhraseAmpQ16;
+        _vpFujiPrimaryAccentAmp      = s.FujisakiPrimaryAccentAmpQ16;
+        _vpFujiHeadAccentAmp         = s.FujisakiHeadAccentAmpQ16;
+        _vpFujiSecondaryAccentAmp    = s.FujisakiSecondaryAccentAmpQ16;
+        _vpFujiEmphaticAccentAmp     = s.FujisakiEmphaticAccentAmpQ16;
+        _vpFujiPitchCurveExp         = (double)s.FujisakiPitchCurveExpPct / 100.0;
+        if (_vpFujiPitchCurveExp <= 0.0) {
+            _vpFujiPitchCurveExp = 1.0;
+        }
+        _vpFujiMonoAccentDurScale    = (double)s.FujisakiMonoAccentDurScalePct / 100.0;
+        _vpFujiCompoundStep          = (double)s.FujisakiCompoundStepQ16 / k100percent;
+        {
+            // Statement final-vowel drop: last vowel ends ~0.85x baseline
+            double dropFrac = (double)s.FujisakiFinalDropPct / 100.0;
+            if (dropFrac >= 1.0) dropFrac = 0.99;
+            _vpFujiFinalDropPitch = (int32_t)(std::log(1.0 - dropFrac) * kPitchUnitsPerNeper);
+        }
+
+        _fuji.Reset();
+        _punctSmooth = 0;
         _f0Smooth = 0;
         _f0SmoothPrime = true;
+        _clauseFrame = 0;
+        _phraseFireFrame = 0;
 
         _controlF0 = 0;
         _curPhonCtrlSinging = 0;
         _flutterPhaseA = 0;
         _flutterPhaseB = 0;
-        _dbgTiltExcursion = 0;
+        _dbgFujiExcursion = 0;
+        _dbgPhraseResp = 0;
+        _dbgAccentResp = 0;
         _dbgBaselineOffset = 0;
         _dbgTotalOffset = 0;
         _punctOffset = 0;
+        _fujiMeanOffset = 0;
+
+        BuildFujiProsody();
+
+        // Fire the clause-start phrase command; kPhraseReset re-fires it mid-clause
+        _fuji.Phrase((double)_vpFujiPhraseAmp / k100percent,
+                     FujisakiPitchModel::kDefaultPhraseLenFrames);
     }
 
     int16_t PitchInterpolator::Step() {
@@ -261,156 +285,15 @@ namespace SharpVox {
         }
     }
 
-    // Parabolic synthesis for one rise or fall component (Taylor 2000, eq. 12).
-    //
-    //   f0(t) = A_abs + A - 2A*(t/D)^2    for 0 <= t < D/2
-    //   f0(t) = A_abs + 2A*(1-t/D)^2      for D/2 <= t <= D
-    //
-    // The curve always starts at (A_abs + A) and ends at A_abs.
-    // A < 0: ascending (rise) curve;  A > 0: descending (fall) curve.
-    // 8-bit fixed point is used for t/D to avoid overflow while preserving precision.
-    int32_t PitchInterpolator::TiltSynth(int32_t a, int32_t aAbs, int32_t frame, int32_t dur) {
-        if (dur <= 0) {
-            return aAbs;
-        }
-        int32_t tD8 = (frame << 8) / dur;   // t/D in 8.8 fixed point (0..255)
-        int32_t twoA = a * 2;
-        if (frame * 2 < dur) {
-            int32_t tD2 = (tD8 * tD8) >> 8; // (t/D)^2 in 8.8 fixed point
-            return aAbs + a - ((twoA * tD2) >> 8);
-        } else {
-            int32_t omtD = (1 << 8) - tD8; // (1-t/D) in 8.8 fixed point
-            int32_t omtD2 = (omtD * omtD) >> 8;
-            return aAbs + ((twoA * omtD2) >> 8);
-        }
-    }
-
-    // Returns the current Tilt excursion (pitch units above/below baseline) and
-    // advances the Tilt state machine by one frame.
-    int32_t PitchInterpolator::StepTilt() {
-        if (_tiltPhase == 0) {
-            return _tiltHeldLevel;
-        }
-
-        int32_t excursion = TiltSynth(_tiltA, _tiltAbs, _tiltFrame, _tiltPhaseDur);
-        _tiltFrame++;
-
-        if (_tiltFrame >= _tiltPhaseDur) {
-            _tiltHeldLevel = _tiltAbs; // settle to end value
-
-            if (_tiltFallPending) {
-                _tiltPhase = 2;
-                _tiltFrame = 0;
-                _tiltA = _tiltFallA;
-                _tiltAbs = _tiltFallAbs;
-                _tiltPhaseDur = _tiltFallDur;
-                _tiltFallPending = false;
-            } else {
-                _tiltPhase = 0; // return to hold
-            }
-        }
-
-        return excursion;
-    }
-
-    // Starts a Tilt event from the pitch buffer.
-    // amplitude:  A_event in pitch units (positive)
-    // tiltX64:    tilt * 64 in range [-64, +64]
-    // duration:   total event duration in frames
-    // flags:      event type (determines whether held level is updated or restored)
-    void PitchInterpolator::FireTiltEvent(int32_t amplitude, int32_t tiltX64, int32_t duration, int32_t flags) {
-        // Convert Tilt -> RFC components (Taylor 2000, eqs 8-11)
-        int32_t aRise = amplitude * (64 + tiltX64) / 128;
-        int32_t aFall = amplitude * (64 - tiltX64) / 128;
-        int32_t dRise = duration * (64 + tiltX64) / 128;
-        int32_t dFall = duration * (64 - tiltX64) / 128;
-
-        bool isNuclear = (flags & kPitchRiseFall_Flg) != 0;
-        bool isStepping = isNuclear || (flags & kPitchRiseFall1_Flg) != 0;
-
-        int32_t held = _tiltHeldLevel;
-
-        // Sample the current excursion so new events can start from wherever the
-        // curve is right now.  This eliminates audible discontinuities when a new
-        // event fires mid-curve, regardless of whether the incoming event is nuclear
-        // or transient.
-        int32_t curExcursion = _tiltPhase != 0
-            ? TiltSynth(_tiltA, _tiltAbs, _tiltFrame, _tiltPhaseDur)
-            : held;
-
-        // Peak-targeting accents (MITalk declination lines, DECtalk geometry):
-        // for stepping rise+fall events, aRise is an absolute peak above the phrase
-        // floor and aRise - aFall is the absolute landing level.  The realized rise
-        // shrinks as the plateau ratchets up, so peaks ride a near-flat line while
-        // valleys climb, instead of every accent re-rising by a fixed amount.
-        // Head events land near half the peak (MITalk 2:1 rise:fall hat); nuclear
-        // events land below the baseline (Tune A constant terminal value).
-        if (isStepping && aRise > 0 && dRise > 0 && aFall > 0 && dFall > 0) {
-            int32_t landing = isNuclear ? (aRise - aFall) : 0;
-            if (aRise > curExcursion) {
-                _tiltPhase = 1; // RISE
-                _tiltFrame = 0;
-                _tiltPhaseDur = dRise;
-                _tiltAbs = aRise;
-                _tiltA = curExcursion - aRise;
-                _tiltFallPending = true;
-                _tiltFallDur = dFall;
-                _tiltFallAbs = landing;
-                _tiltFallA = aRise - landing;
-            } else {
-                // Already at or above the peak: skip the rise, fall to the landing level.
-                _tiltPhase = 2; // FALL
-                _tiltFrame = 0;
-                _tiltPhaseDur = dFall;
-                _tiltAbs = landing;
-                _tiltA = curExcursion - landing;
-                _tiltFallPending = false;
-            }
-            return;
-        }
-
-        // Remaining event types keep level-relative semantics: transient events
-        // (stress, pronoun) bump off the current excursion and return to the held
-        // plateau; Japanese mora events are pure rises and pure falls whose paired
-        // amplitudes step the held level up and back down.
-        if (aRise > 0 && dRise > 0) {
-            _tiltPhase = 1; // RISE
-            _tiltFrame = 0;
-            _tiltPhaseDur = dRise;
-            _tiltA = -aRise;
-            _tiltAbs = (isStepping ? held : curExcursion) + aRise;
-
-            if (aFall > 0 && dFall > 0) {
-                _tiltFallPending = true;
-                _tiltFallDur = dFall;
-                _tiltFallAbs = held;
-                _tiltFallA = _tiltAbs - held;
-            } else {
-                _tiltFallPending = false;
-            }
-        } else if (aFall > 0 && dFall > 0) {
-            _tiltPhase = 2; // FALL (no rise)
-            _tiltFrame = 0;
-            _tiltPhaseDur = dFall;
-            // Pure falls stay held-relative: the Japanese mora model pairs a pure rise
-            // with a pure fall whose amplitude already includes the rise to undo.
-            _tiltAbs = isNuclear ? held - aFall : held;
-            // Adjust _tiltA so the curve starts at curExcursion and ends at _tiltAbs,
-            // giving continuity without changing the intended endpoint.
-            _tiltA = curExcursion - _tiltAbs;
-            _tiltFallPending = false;
-        }
-    }
-
-    void PitchInterpolator::Interpolate_Pitch() {
-        // Pitch buffer event collection loop: fire all events due this frame.
+    // Fires all pitch-buffer events due this frame (speech and singing alike)
+    void PitchInterpolator::FirePitchEvents() {
         bool collect = true;
         do {
             if (_curPitchBufTime >= _nextPitchBufTime
                 && _pitchBufOutIndex < (int32_t)_plan.PitchBufInIndex) {
                 int32_t evAmp = _plan.PitchBufFreq[_pitchBufOutIndex];
                 int32_t evFlags = _plan.PitchBufFlags[_pitchBufOutIndex];
-                int32_t evTiltX64 = _plan.PitchBufTiltX64[_pitchBufOutIndex];
+                (void)_plan.PitchBufTiltX64[_pitchBufOutIndex];  // tilt field unused by the Fujisaki model
                 int32_t evDuration = _plan.PitchBufDuration[_pitchBufOutIndex];
 
                 _curPitchBufTime -= _nextPitchBufTime;
@@ -425,40 +308,285 @@ namespace SharpVox {
                         _curRamp++;
                     }
                     _downRampStep = _rampSteps[_curRamp];
-                    _tiltHeldLevel = 0;
-                    _tiltPhase = 0;
-                    _tiltFallPending = false;
-                    _tiltSmooth = 0;
+                    // Fresh phrase command; filters start from rest
+                    _fuji.Reset();
+                    _fuji.Phrase((double)_vpFujiPhraseAmp / k100percent,
+                                 FujisakiPitchModel::kDefaultPhraseLenFrames);
+                    _phraseFireFrame = _clauseFrame;
+                    _punctSmooth = 0;
                     _f0Smooth = 0;
                     _f0SmoothPrime = true;
                     _punctOffset = 0;
                 } else if ((evFlags & kPitchBoundry_Flg) != 0) {
                     _punctOffset = evAmp;
                 } else {
-                    FireTiltEvent(evAmp, evTiltX64, evDuration, evFlags);
+                    FireAccentEvent((int16_t)evFlags, evDuration);
                 }
             } else {
                 collect = false;
             }
         }
         while (collect);
+    }
 
-        if (!_singing) {
-            // Baseline declination ramp
-            int32_t userPitch = (_phonIndexTarg >= 0 && _phonIndexTarg < (int32_t)_plan.UserPitchBuf.size())
-                                ? _plan.UserPitchBuf[_phonIndexTarg] : 0;
-            int32_t baseLineOffset = _baselineStartOffset - (int32_t)(_downRampOffset >> 16) + userPitch;
-            if (baseLineOffset > _baselineEndOffset) {
-                _downRampOffset += _downRampStep;
+    // One frame of intonation: declination + userPitch + Fujisaki phrase/accent
+    // + smoothed boundary tone + clause-final shaping (raw log-pitch offset).
+    int32_t PitchInterpolator::ComputeIntonationOffset(int32_t userPitch) {
+        // Declination ramp (linear in log-pitch = exponential F0 decay)
+        int32_t baseLineOffset = _baselineStartOffset - (int32_t)(_downRampOffset >> 16) + userPitch;
+        _dbgBaselineOffset = baseLineOffset - userPitch;
+        if (baseLineOffset > _baselineEndOffset) {
+            _downRampOffset += _downRampStep;
+        }
+
+        // Fujisaki phrase + accent filter responses (nepers -> pitch units)
+        double ySum = _fuji.Step();
+        int32_t fujiExcursion = (int32_t)(ySum * kPitchUnitsPerNeper);
+        _dbgPhraseResp = (int32_t)(_fuji.PhraseResp() * kPitchUnitsPerNeper);
+        _dbgAccentResp = (int32_t)(_fuji.AccentResp() * kPitchUnitsPerNeper);
+
+        // Statement clauses blend a drop across the last vowel; question/tilde
+        // rises arrive via _punctOffset instead.
+        int32_t clauseShaping = 0;
+        {
+            int16_t endPunct = _plan.EndPunctuation;
+            bool isStatement = (endPunct == 0 || endPunct == _Period_);
+            if (isStatement && _vpFujiFinalDropPitch != 0
+                && _clauseFrame >= _lastVowelStartFrame
+                && _clauseFrame < _lastVowelStartFrame + _lastVowelDur) {
+                int32_t intoVowel = _clauseFrame - _lastVowelStartFrame;
+                int32_t frac = (_lastVowelDur > 0) ? ((intoVowel << 16) / _lastVowelDur) : 0;
+                // Blend the (already negative) drop across the vowel
+                clauseShaping = (_vpFujiFinalDropPitch * frac) >> 16;
+            }
+        }
+
+        _punctSmooth = (_punctSmooth * 7 + (_punctOffset + clauseShaping)) >> 3;
+        int32_t excursion = fujiExcursion + _punctSmooth;
+        _dbgFujiExcursion = excursion;
+
+        return baseLineOffset + excursion;
+    }
+
+    // Precomputes per-word vowel data, the last-vowel window, and the clause
+    // mean offset by replaying the intonation profile.
+    void PitchInterpolator::BuildFujiProsody() {
+        const int32_t n = _plan.PhonBufInIndex;
+        _wordNuclei.assign((size_t)n, 0);
+        _wordHadPrimary.assign((size_t)n, false);
+        _phonStartFrame.assign((size_t)n + 1, 0);
+        {
+            int32_t acc = 0;
+            for (int32_t i = 0; i < n; ++i) {
+                _phonStartFrame[i] = acc;
+                acc += (i < (int32_t)_plan.DurBuf.size()) ? _plan.DurBuf[i] : 0;
+            }
+            _phonStartFrame[n] = acc;
+        }
+        _lastVowelStartFrame = 0;
+        _lastVowelDur = 0;
+
+        int32_t lastVowelIdx = -1;
+        size_t wordBegin = 0;
+        for (int32_t i = 0; i <= n; ++i) {
+            bool isEnd = (i == n) ||
+                (i > 0 && (_plan.PhonCtrlBuf[i] & kBoundryTypeField) == kWord_Start
+                      && _plan.PhonBuf[i] != _SIL_);
+            if (isEnd) {
+                int32_t nuclei = 0;
+                for (int32_t j = (int32_t)wordBegin; j < i; ++j) {
+                    if ((Tables::GetFeatureFlags(GetPhon(j)) & kVowelF) != 0) {
+                        ++nuclei;
+                    }
+                }
+                bool primarySoFar = false;
+                for (int32_t j = (int32_t)wordBegin; j < i; ++j) {
+                    _wordNuclei[j] = nuclei;
+                    _wordHadPrimary[j] = primarySoFar;
+                    int16_t p = GetPhon(j);
+                    if ((Tables::GetFeatureFlags(p) & kVowelF) != 0) {
+                        lastVowelIdx = j;
+                        if ((GetPhonCtrl(j) & kPrimOrEmphStress) != 0) {
+                            primarySoFar = true;
+                        }
+                    }
+                }
+                if (i < n) {
+                    wordBegin = (size_t)i;
+                }
+            }
+        }
+
+        if (lastVowelIdx >= 0 && lastVowelIdx < (int32_t)_plan.DurBuf.size()) {
+            for (int32_t i = 0; i < lastVowelIdx; ++i) {
+                if (i < (int32_t)_plan.DurBuf.size()) {
+                    _lastVowelStartFrame += _plan.DurBuf[i];
+                }
+            }
+            _lastVowelDur = _plan.DurBuf[lastVowelIdx];
+        }
+
+        // Replay the clause's intonation profile (no user pitch) and average it
+        // over voiced frames.  Subtracting this mean before Intonation/PitchRange
+        // scaling keeps PitchHz the average pitch.  Must advance _curPitchBufTime
+        // exactly like the live loop or the event timeline stalls and Intonation
+        // leaks into the level.
+        {
+            const int32_t totalFrames = _phonStartFrame[(size_t)_plan.PhonBufInIndex];
+            int64_t sum = 0;
+            int32_t voicedCount = 0;
+            if (totalFrames > 0) {
+                _fuji.Reset();
+                _fuji.Phrase((double)_vpFujiPhraseAmp / k100percent,
+                             FujisakiPitchModel::kDefaultPhraseLenFrames);
+                int32_t phonIdx = 0;
+                for (int32_t f = 0; f < totalFrames; ++f) {
+                    FirePitchEvents();
+                    int32_t off = ComputeIntonationOffset(0);
+                    _curPitchBufTime++;
+                    _clauseFrame++;
+                    // Frame -> phoneme walk (monotonic)
+                    while (phonIdx + 1 < (int32_t)_phonStartFrame.size()
+                           && _phonStartFrame[(size_t)phonIdx + 1] <= f) {
+                        phonIdx++;
+                    }
+                    if (phonIdx < _plan.PhonBufInIndex
+                        && (Tables::GetFeatureFlags(GetPhon(phonIdx)) & kVoicedF) != 0) {
+                        sum += off;
+                        voicedCount++;
+                    }
+                }
+                _fujiMeanOffset = (voicedCount > 0)
+                    ? (int32_t)std::llround((double)sum / voicedCount) : 0;
+            } else {
+                _fujiMeanOffset = 0;
             }
 
-            // Tilt excursion for this frame, smoothed with a one-pole IIR (alpha = 0.875, tau ~ 38ms)
-            // to approximate the linear connections between events (Taylor 2000, eq. 13).
-            // _punctOffset (boundary tone target) is folded in here so the same smoother
-            // handles boundary transitions without a separate filter.
-            int32_t tiltExcursion = StepTilt() + _punctOffset;
-            _dbgTiltExcursion = tiltExcursion;
-            _tiltSmooth = (_tiltSmooth * 7 + tiltExcursion) >> 3;
+            // Restore pre-synthesis state; the ctor fires the initial phrase
+            const PitchState& ps = _plan.Pitch;
+            _fuji.Reset();
+            _punctSmooth = 0;
+            _punctOffset = 0;
+            _curPitchBufTime = ps.CurPitchBufTime;
+            _nextPitchBufTime = ps.NextPitchBufTime;
+            _pitchBufOutIndex = ps.PitchBufOutIndex;
+            _downRampOffset = ps.DownRampOffset;
+            _curRamp = ps.CurRamp;
+            _downRampStep = ps.DownRampStep;
+            _clauseFrame = 0;
+            _phraseFireFrame = 0;
+            _f0Smooth = 0;
+            _f0SmoothPrime = true;
+        }
+    }
+
+    // Fires one accent command from a pitch-buffer event (type from flags)
+    void PitchInterpolator::FireAccentEvent(int16_t flags, int32_t durationFrames) {
+        // Resolve the owning phoneme; events fire one frame before their buffer
+        // time, so the nominal event frame is _clauseFrame + 1 (keeps time-0
+        // events attributed to their vowel, not the preceding consonant).
+        int32_t phon = 0;
+        {
+            int32_t evFrame = _clauseFrame + 1;
+            size_t lo = 0, hi = _phonStartFrame.size();
+            while (lo + 1 < hi) {
+                size_t mid = (lo + hi) >> 1;
+                if (_phonStartFrame[mid] <= evFrame) {
+                    lo = mid;
+                } else {
+                    hi = mid;
+                }
+            }
+            phon = (int32_t)lo;
+        }
+
+        // Event type -> accent amplitude (nepers) + prominence for curve
+        // shaping (accentAmp = baseAmp * pow(prominence, pitchExp)).  Head
+        // accents stay near-nuclear so the clause doesn't ride flat.
+        double amp = 0.0;
+        double prominence = 1.0;
+        if ((flags & kPitchRiseFall_Flg) != 0) {
+            amp = (double)_vpFujiPrimaryAccentAmp / k100percent;
+        } else if ((flags & kPitchRiseFall1_Flg) != 0) {
+            amp = (double)_vpFujiHeadAccentAmp / k100percent;
+            prominence = 0.85;
+        } else if ((flags & kPitchStress_Flg) != 0) {
+            // Emphatic vs pronoun accent, told apart via the phoneme's controls
+            int64_t ctrl = GetPhonCtrl(phon);
+            if ((ctrl & kEmphaticStress) != 0) {
+                amp = (double)_vpFujiEmphaticAccentAmp / k100percent;
+            } else {
+                amp = (double)_vpFujiSecondaryAccentAmp / k100percent;
+            }
+        } else {
+            return;
+        }
+
+        double expo = _vpFujiPitchCurveExp;
+        if (expo < 0.1) expo = 0.1;
+        amp *= std::pow(prominence, expo);
+        if (amp <= 0.0) return;
+
+        // Clause-start de-accenting: while the phrase hump is active, scale the
+        // accent down so the first word doesn't stack phrase + accent into a
+        // near-octave spike.  humpFrac is the phrase response, or (for accents
+        // before the filter has risen) a taper since the phrase fired.
+        {
+            double phraseAmp = (double)_vpFujiPhraseAmp / k100percent;
+            if (phraseAmp > 0.0) {
+                double humpFrac = _fuji.PhraseResp() / phraseAmp;
+                if (humpFrac > 1.0) humpFrac = 1.0;
+                int32_t sincePhrase = _clauseFrame - _phraseFireFrame;
+                double timeFrac = 1.0 - (double)sincePhrase / kPhraseHumpFrames;
+                if (timeFrac < 0.0) timeFrac = 0.0;
+                if (timeFrac > 1.0) timeFrac = 1.0;
+                if (humpFrac < timeFrac) humpFrac = timeFrac;
+                if (humpFrac > 0.0) {
+                    amp *= (1.0 - kPhraseStartAccentScale * humpFrac);
+                }
+            }
+        }
+        if (amp <= 0.0) return;
+
+        // Post-primary vowels in a word step down slightly
+        if (_vpFujiCompoundStep > 0.0
+            && phon >= 0 && phon < (int32_t)_wordHadPrimary.size()
+            && _wordHadPrimary[phon] && prominence < 0.9) {
+            amp -= _vpFujiCompoundStep;
+            if (amp < 0.0) amp = 0.0;
+        }
+        if (amp <= 0.0) return;
+
+        // Pulse length = vowel duration, clamped to a window (minimum so short
+        // vowels drive the filter; the tail links accents together), scaled for
+        // single-nucleus words.
+        int32_t dur = durationFrames;
+        if (dur < kMinAccentPulseFrames) dur = kMinAccentPulseFrames;
+        if (dur > kMaxAccentPulseFrames) dur = kMaxAccentPulseFrames;
+        if (_vpFujiMonoAccentDurScale > 0.0 && _vpFujiMonoAccentDurScale < 1.0
+            && phon >= 0 && phon < (int32_t)_wordNuclei.size()
+            && _wordNuclei[phon] == 1) {
+            dur = (int32_t)(dur * _vpFujiMonoAccentDurScale);
+            if (dur < 12) dur = 12;
+        }
+
+        // Attack scales with the pulse so short accents stay punchy
+        int32_t attack = dur / 4;
+        if (attack < 4) attack = 4;
+        if (attack > FujisakiPitchModel::kDefaultAccentLenFrames) {
+            attack = FujisakiPitchModel::kDefaultAccentLenFrames;
+        }
+
+        _fuji.Accent(amp, dur, attack);
+    }
+
+    void PitchInterpolator::Interpolate_Pitch() {
+        FirePitchEvents();
+
+        if (!_singing) {
+            int32_t userPitch = (_phonIndexTarg >= 0 && _phonIndexTarg < (int32_t)_plan.UserPitchBuf.size())
+                                ? _plan.UserPitchBuf[_phonIndexTarg] : 0;
+            int32_t intonBase = ComputeIntonationOffset(userPitch);
 
             // Phoneme target advance (lookahead for phoneme pitch offsets)
             if (_timeIntoPhonTarg > _curPhonDurCc + _phonDurDelay
@@ -496,14 +624,10 @@ namespace SharpVox {
 
             Phon_Boundry_Pitch();
 
-            // Scale the intonation contour by pitch range.
-            // Only the tilt excursion and declination baseline are intentional intonation
-            // gestures and should grow with pitch range. Phoneme-level micro-features
-            // (_phonPitchOffset1, _uvPhonPitchTarg, micro-dip) are acoustic side effects
-            // of articulation and must be applied after range scaling so they stay
-            // constant in magnitude regardless of the voice's pitch range setting.
-            _dbgBaselineOffset = baseLineOffset;
-            int32_t totalOffset = (int32_t)(((int64_t)(_tiltSmooth + baseLineOffset) * _vpIntonation) >> 16);
+            // Scale around the clause mean so PitchHz stays the average pitch;
+            // phoneme micro-features are applied after range scaling to stay
+            // constant regardless of the pitch range setting.
+            int32_t totalOffset = (int32_t)(((int64_t)(intonBase - _fujiMeanOffset) * _vpIntonation) >> 16);
             totalOffset = (int16_t)totalOffset; // preserve C short-truncation behaviour
             _dbgTotalOffset = totalOffset;
             _controlF0 = (int32_t)((((int64_t)totalOffset * _vpPitchRange) >> 16) + _vpBaselinePitch);
@@ -520,10 +644,7 @@ namespace SharpVox {
                 _controlF0 += (int32_t)((dipDepth * _vpIntonation) >> 16);
             }
 
-            // Phoneme timbre offsets (range-independent): onset spike decaying across phoneme.
-            // Voiced phonemes use _phonPitchOffset1; unvoiced use _uvPhonPitchTarg.
-            // Both decay at the same rate and are applied after range scaling so they
-            // contribute a fixed pitch-unit magnitude regardless of _vpPitchRange.
+            // Phoneme onset spikes (range-independent, applied post-scaling)
             _controlF0 += _phonPitchOffset1;
             _phonPitchOffset1 = (int32_t)(((int64_t)_phonPitchOffset1 * 98 * pct) >> 16);
             _controlF0 += _uvPhonPitchTarg;
@@ -613,6 +734,7 @@ namespace SharpVox {
         _curPitchBufTime++;
         _timeIntoPhonTarg++;
         _timeIntoPhonCp++;
+        _clauseFrame++;
     }
 
 }  // namespace SharpVox
