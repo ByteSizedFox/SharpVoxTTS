@@ -162,7 +162,6 @@ namespace SharpVox {
         int32_t _preemphA_q15;  // pre-emphasis zero, rate-compensated at construction
         int32_t _preemphScale_q12;  // fs/22050 in Q12, flattens differentiator gain across rates
         float _tiltPrev;        // spectral tilt one-sample delay (float, matches float variant)
-        float _glotPrev;        // previous flow sample for the differentiated cascade source (Klatt & Klatt 1990)
 
         //  Amplitude state: Q8 (float * 256) 
         int32_t _voiceAmp_q8;

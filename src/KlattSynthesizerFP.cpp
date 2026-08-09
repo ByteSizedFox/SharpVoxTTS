@@ -85,17 +85,13 @@ static inline float fp_iir_zff(float b0, float b1, float B, float C,
     return y;
 }
 
-// KLGLOTT88 flow tau^2*(1-tau) (Rosenberg 1971 open phase; Klatt & Klatt 1990
-// Sec. II.B) blended with the legacy pulse; kGlotTilt controls brightness.
-static constexpr float kGlotTilt = 0.25f;
+// KLGLOTT88 flow tau^2*(1-tau) blended with the legacy pulse; kGlotTilt sets
+// brightness (0 = full bass/-6 dB/oct, higher lifts 1-3 kHz presence).
+static constexpr float kGlotTilt = 0.10f;
 static inline float GlotPulse(float tau) {
     return (1.0f - kGlotTilt) * (tau * tau * (1.0f - tau))
          + kGlotTilt * (tau * (0.33333333f - tau * 0.5f));
 }
-
-// Levels the fs/effF0-normalized derivative back to the flow's ~4/27 peak so
-// downstream gains hold (KLSYN88 fold-in: Klatt & Klatt 1990 Figs. 10-11).
-static constexpr float kDerivNorm = 0.0355f;
 
 // polyBLEP band-limited value-step correction (t = phase distance in [0,1), dt = f0/fs).
 // Scale by step/2 at the call site.
@@ -214,7 +210,6 @@ KlattSynthesizerFP::KlattSynthesizerFP(int32_t sampleRate) {
     _f4pD1=_f4pD2=0; _f5pD1=_f5pD2=0; _f6pD1=_f6pD2=0;
     _nzD1=_nzD2=0; _npD1=_npD2=0;
     _sgD1=_sgD2=0; _preemphPrev=0; _tiltPrev=0;
-    _glotPrev = 0.0f;
 
     _voiceAmp_q8=_fricAmp_q8=_abAmp_q8=0;
     _pAmp2_q8=_pAmp3_q8=_pAmp4_q8=_pAmp5_q8=_pAmp6_q8=0;
@@ -551,7 +546,6 @@ void KlattSynthesizerFP::SynthesizeFrame(Frame frame, int16_t* outputBuffer, int
         _f1X1=_f2X1=_f3X1=_f4X1=_f5cX1=_f6cX1=_f7cX1=_f8cX1=0.0f;
         _npD1=_npD2=_nzD1=_nzD2=0;
         _preemphPrev=0; _tiltPrev=0;
-        _glotPrev = 0.0f;
 
         float A,B,C;
         Calc_Matched_Pole_Coefficients(_f1b0,_f1b1,B,C, AdjFormant((int16_t)(frame.F1+_f1FreqOffset),1), frame.Bw1);
@@ -796,15 +790,6 @@ void KlattSynthesizerFP::SynthesizeFrame(Frame frame, int16_t* outputBuffer, int
                                   * _voiceGain_f * (Diplophonia * 0.007f);
                 }
 
-                // Cascade source = d/dt of the flow (Klatt 1980 Eq. 7; folded
-                // into the source per Klatt & Klatt 1990): H1 comes out weaker vs
-                // H2+. glotOpenness keeps the flow for breathiness gating.
-                float glotOpenness = glotSample;
-                float glotDiff = (glotSample - _glotPrev)
-                               * ((float)_sampleRate / (float)effF0Hz) * kDerivNorm;
-                _glotPrev = glotSample;
-                glotSample = glotDiff;
-
                 // 1-pole lowpass with corner held at the 22050 anchor
                 // (d = 1 - (1-dBase)*22050/fs), so timbre is rate-invariant.
                 int32_t eTilt = _tilt_q15 + frameTiltBias_q15;
@@ -826,9 +811,9 @@ void KlattSynthesizerFP::SynthesizeFrame(Frame frame, int16_t* outputBuffer, int
                     cascadeInF += sg * (SubglottalAmt * 0.005f);
                 }
 
-                // Cycle-synchronous breathiness (open-phase gated, Klatt & Klatt 1990, p. 842).
+                // Cycle-synchronous breathiness.
                 if (BreathAmt > 0) {
-                    float openness = std::max(0.0f, glotOpenness);
+                    float openness = std::max(0.0f, glotSample);
                     cascadeInF += (float)(NextNoise()-128) * openness
                                   * (voiceAmpTrem_q8/256.0f) * (BreathAmt * 0.00004f)
                                   * _noiseScale / 8192.0f;
