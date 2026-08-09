@@ -110,6 +110,16 @@ namespace SharpVox {
         _vpBreakStrength  = vd.BreakStrength;
         _vpEmphasisBoost  = vd.EmphasisBoost;
         _vocalConfidence  = vd.VocalConfidence;
+
+        _vpFujiPhraseAmp             = vd.FujisakiPhraseAmpQ16;
+        _vpFujiPrimaryAccentAmp      = vd.FujisakiPrimaryAccentAmpQ16;
+        _vpFujiHeadAccentAmp         = vd.FujisakiHeadAccentAmpQ16;
+        _vpFujiSecondaryAccentAmp    = vd.FujisakiSecondaryAccentAmpQ16;
+        _vpFujiEmphaticAccentAmp     = vd.FujisakiEmphaticAccentAmpQ16;
+        _vpFujiPitchCurveExpPct      = vd.FujisakiPitchCurveExpPct;
+        _vpFujiMonoAccentDurScalePct = vd.FujisakiMonoAccentDurScalePct;
+        _vpFujiCompoundStep          = vd.FujisakiCompoundStepQ16;
+        _vpFujiFinalDropPct          = vd.FujisakiFinalDropPct;
     }
 
     // Public entry point.
@@ -341,6 +351,16 @@ namespace SharpVox {
         pitch.VpPitchRange       = _vpPitchRange;
         pitch.VpBaselinePitch    = _vpBaselinePitch;
 
+        pitch.FujisakiPhraseAmpQ16           = _vpFujiPhraseAmp;
+        pitch.FujisakiPrimaryAccentAmpQ16    = _vpFujiPrimaryAccentAmp;
+        pitch.FujisakiHeadAccentAmpQ16       = _vpFujiHeadAccentAmp;
+        pitch.FujisakiSecondaryAccentAmpQ16  = _vpFujiSecondaryAccentAmp;
+        pitch.FujisakiEmphaticAccentAmpQ16   = _vpFujiEmphaticAccentAmp;
+        pitch.FujisakiPitchCurveExpPct       = _vpFujiPitchCurveExpPct;
+        pitch.FujisakiMonoAccentDurScalePct  = _vpFujiMonoAccentDurScalePct;
+        pitch.FujisakiCompoundStepQ16        = _vpFujiCompoundStep;
+        pitch.FujisakiFinalDropPct           = _vpFujiFinalDropPct;
+
         pitch.VibratoDepth1      = _vibratoDepth1;
         pitch.VibratoDepth2      = _vibratoDepth2;
         pitch.VibratoFreq        = _vibratoFreq;
@@ -375,7 +395,8 @@ namespace SharpVox {
             /*pitchBufFlags=*/   std::move(pitchFlags),
             /*pitchBufTiltX64=*/ std::move(pitchTiltX64),
             /*pitchBufDuration=*/std::move(pitchDuration),
-            /*pitch=*/           std::move(pitch)
+            /*pitch=*/           std::move(pitch),
+            /*endPunctuation=*/  _endPunctuation
         );
     }
 
@@ -530,7 +551,8 @@ namespace SharpVox {
             /*pitchBufFlags=*/   pitchSentinel,
             /*pitchBufTiltX64=*/ pitchSentinel,
             /*pitchBufDuration=*/std::move(pitchSentinel),
-            /*pitch=*/           pitch
+            /*pitch=*/           pitch,
+            /*endPunctuation=*/  0
         );
     }
 
@@ -1805,10 +1827,10 @@ namespace SharpVox {
         _curRamp = 0;
     }
 
-    // Fill_Pitch_Buf - Taylor (2000) Tilt model.
+    // Fill_Pitch_Buf - prosody event generation.
     //
-    // Events emitted into the pitch buffer carry (amplitude, tiltX64, duration) so that
-    // PitchInterpolator can synthesize the parabolic F0 contour for each event.
+    // Events carry (amplitude, tiltX64, duration); PitchInterpolator maps them
+    // to Fujisaki phrase/accent/boundary commands.
     //
     // Nuclear accent (kPitchRise / kPitchFall):
     //   kPitchRise marks the start of the nuclear region; no F0 event fires on this vowel.

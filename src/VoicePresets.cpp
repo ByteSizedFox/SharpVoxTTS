@@ -31,7 +31,7 @@ bool VoicePresets::TryGet(const std::string& name, VoiceData& outVoice) {
         outVoice.NasalBW = 53;
         outVoice.PitchRange = 148;
         outVoice.StressGain = 60;
-        outVoice.Intonation = 100;
+        outVoice.Intonation = 150;
         outVoice.RiseAmt = 38;
         outVoice.FallAmt = -38;
         outVoice.BaselineFall = 53;
@@ -59,7 +59,7 @@ bool VoicePresets::TryGet(const std::string& name, VoiceData& outVoice) {
         outVoice.NasalBW = 64;
         outVoice.PitchRange = 145;
         outVoice.StressGain = 60;
-        outVoice.Intonation = 101;
+        outVoice.Intonation = 150;
         outVoice.RiseAmt = 35;
         outVoice.FallAmt = -38;
         outVoice.BaselineFall = 43;
@@ -87,7 +87,7 @@ bool VoicePresets::TryGet(const std::string& name, VoiceData& outVoice) {
         outVoice.NasalBW = 58;
         outVoice.PitchRange = 72;
         outVoice.StressGain = 60;
-        outVoice.Intonation = 96;
+        outVoice.Intonation = 150;
         outVoice.RiseAmt = 22;
         outVoice.FallAmt = -25;
         outVoice.BaselineFall = 62;
@@ -115,7 +115,7 @@ bool VoicePresets::TryGet(const std::string& name, VoiceData& outVoice) {
         outVoice.NasalBW = 67;
         outVoice.PitchRange = 80;
         outVoice.StressGain = 60;
-        outVoice.Intonation = 106;
+        outVoice.Intonation = 150;
         outVoice.RiseAmt = 34;
         outVoice.FallAmt = -17;
         outVoice.BaselineFall = 47;
@@ -143,7 +143,7 @@ bool VoicePresets::TryGet(const std::string& name, VoiceData& outVoice) {
         outVoice.NasalBW = 50;
         outVoice.PitchRange = 228;
         outVoice.StressGain = 60;
-        outVoice.Intonation = 104;
+        outVoice.Intonation = 150;
         outVoice.RiseAmt = 40;
         outVoice.FallAmt = -35;
         outVoice.BaselineFall = 47;
@@ -187,7 +187,7 @@ bool VoicePresets::TryGet(const std::string& name, VoiceData& outVoice) {
         outVoice.NasalBW = 60;
         outVoice.PitchRange = 118;
         outVoice.StressGain = 60;
-        outVoice.Intonation = 94;
+        outVoice.Intonation = 150;
         outVoice.RiseAmt = 37;
         outVoice.FallAmt = -34;
         outVoice.BaselineFall = 47;
@@ -215,7 +215,7 @@ bool VoicePresets::TryGet(const std::string& name, VoiceData& outVoice) {
         outVoice.NasalBW = 70;
         outVoice.PitchRange = 65;
         outVoice.StressGain = 60;
-        outVoice.Intonation = 90;
+        outVoice.Intonation = 150;
         outVoice.RiseAmt = 34;
         outVoice.FallAmt = -27;
         outVoice.BaselineFall = 63;
@@ -235,7 +235,7 @@ bool VoicePresets::TryGet(const std::string& name, VoiceData& outVoice) {
         outVoice.Diplophonia = 41;
         outVoice.SubglottalAmt = 6;
         outVoice.PitchRange = 149;
-        outVoice.Intonation = 113;
+        outVoice.Intonation = 150;
         outVoice.RiseAmt = 46;
         outVoice.FallAmt = -18;
         outVoice.BaselineFall = 58;
@@ -286,7 +286,7 @@ bool VoicePresets::TryGet(const std::string& name, VoiceData& outVoice) {
         outVoice.NasalBW = 54;
         outVoice.PitchRange = 235;
         outVoice.StressGain = 60;
-        outVoice.Intonation = 95;
+        outVoice.Intonation = 150;
         outVoice.RiseAmt = 23;
         outVoice.FallAmt = -22;
         outVoice.BaselineFall = 45;
@@ -314,7 +314,7 @@ bool VoicePresets::TryGet(const std::string& name, VoiceData& outVoice) {
         outVoice.NasalBW = 67;
         outVoice.PitchRange = 170;
         outVoice.StressGain = 60;
-        outVoice.Intonation = 90;
+        outVoice.Intonation = 150;
         outVoice.RiseAmt = 22;
         outVoice.FallAmt = -24;
         outVoice.BaselineFall = 60;
@@ -406,6 +406,16 @@ bool VoicePresets::SetParam(VoiceData& v, const std::string& name, float value) 
     else if (name == "vibratorate")    { v.VibratoFreqRaw   = clamp(value,    0,    100); }
     else if (name == "rvbdelay")       { v.RvbDelay         = clamp(value,    0,    500); }
     else if (name == "rvbdepth")       { v.RvbDepth         = clamp(value,    0,    100); }
+    // Fujisaki model knobs (amplitudes in log-F0 / neper units, TGSpeechBox-compatible)
+    else if (name == "fujisakiphraseamp")         { v.FujisakiPhraseAmpQ16          = (int32_t)(clampf(value, 0.0f, 1.0f) * 65536); }
+    else if (name == "fujisakiprimaryaccentamp")  { v.FujisakiPrimaryAccentAmpQ16   = (int32_t)(clampf(value, 0.0f, 1.0f) * 65536); }
+    else if (name == "fujisakiheadaccentamp")      { v.FujisakiHeadAccentAmpQ16      = (int32_t)(clampf(value, 0.0f, 1.0f) * 65536); }
+    else if (name == "fujisakisecondaryaccentamp"){ v.FujisakiSecondaryAccentAmpQ16 = (int32_t)(clampf(value, 0.0f, 1.0f) * 65536); }
+    else if (name == "fujisakiemphaticaccentamp") { v.FujisakiEmphaticAccentAmpQ16  = (int32_t)(clampf(value, 0.0f, 1.0f) * 65536); }
+    else if (name == "fujisakipitchcurveexp")     { v.FujisakiPitchCurveExpPct      = clamp(value,   10,   300); }
+    else if (name == "fujisakimonoaccentdur")     { v.FujisakiMonoAccentDurScalePct = clamp(value,   20,   200); }
+    else if (name == "fujisakicompoundstep")      { v.FujisakiCompoundStepQ16       = (int32_t)(clampf(value, 0.0f, 0.5f) * 65536); }
+    else if (name == "fujisakifinaldrop")         { v.FujisakiFinalDropPct          = clamp(value,    0,    50); }
     else return false;
     return true;
 }

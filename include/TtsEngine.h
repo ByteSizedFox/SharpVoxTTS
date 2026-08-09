@@ -79,22 +79,21 @@ namespace SharpVox {
             std::string Phoneme;
             int32_t FrameInPhon;
             int32_t F0;
-            int32_t TiltExcursion;
-            int32_t TiltSmooth;
-            int32_t TiltHeld;
-            int32_t TiltPhase;
+            int32_t FujiExcursion;  // smoothed phrase+accent+clause excursion
+            int32_t PhraseResp;     // Fujisaki phrase filter response
+            int32_t AccentResp;     // Fujisaki accent filter response
             int32_t BaselineOffset;
             int32_t TotalOffset;
             PitchFrameRecord(const std::string& phoneme, int32_t frameInPhon, int32_t f0,
-                int32_t tiltExcursion, int32_t tiltSmooth, int32_t tiltHeld, int32_t tiltPhase,
+                int32_t fujiExcursion, int32_t phraseResp, int32_t accentResp,
                 int32_t baselineOffset, int32_t totalOffset)
                 : Phoneme(phoneme), FrameInPhon(frameInPhon), F0(f0),
-                  TiltExcursion(tiltExcursion), TiltSmooth(tiltSmooth),
-                  TiltHeld(tiltHeld), TiltPhase(tiltPhase),
+                  FujiExcursion(fujiExcursion), PhraseResp(phraseResp),
+                  AccentResp(accentResp),
                   BaselineOffset(baselineOffset), TotalOffset(totalOffset) {}
         };
 
-        // Returns one record per synthesis frame (5 ms each) with pitch and tilt diagnostics.
+        // Returns one record per synthesis frame (5 ms each) with pitch and Fujisaki diagnostics.
         std::vector<PitchFrameRecord> DumpPitchFrames(const std::string& text);
 
 #ifdef SHARPVOX_SAMPLED_GLOT

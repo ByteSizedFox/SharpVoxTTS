@@ -67,8 +67,8 @@ namespace SharpVox {
             pi.Step();
             const char* namePtr = AudioProcessor::PhonemeNamesTable[plan.PhonBuf[phonIdx]];
             records.emplace_back(namePtr ? std::string(namePtr) : std::string("?"),
-                frameInPhon, pi.DbgF0(), pi.DbgTiltExcursion(), pi.DbgTiltSmooth(),
-                pi.DbgTiltHeld(), pi.DbgTiltPhase(), pi.DbgBaselineOffset(), pi.DbgTotalOffset());
+                frameInPhon, pi.DbgF0(), pi.DbgFujiExcursion(), pi.DbgPhraseResp(),
+                pi.DbgAccentResp(), pi.DbgBaselineOffset(), pi.DbgTotalOffset());
             frameInPhon++;
             if (frameInPhon >= plan.DurBuf[phonIdx]) { phonIdx++; frameInPhon = 0; }
         }
