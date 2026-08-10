@@ -85,60 +85,59 @@ static inline float fp_iir_zff(float b0, float b1, float B, float C,
     return y;
 }
 
-// KLGLOTT88 flow tau^2*(1-tau) blended with the legacy pulse; kGlotTilt sets
-// brightness (0 = full bass/-6 dB/oct, higher lifts 1-3 kHz presence).
-static constexpr float kGlotTilt = 0.10f;
-static inline float GlotPulse(float tau) {
-    return (1.0f - kGlotTilt) * (tau * tau * (1.0f - tau))
-         + kGlotTilt * (tau * (0.33333333f - tau * 0.5f));
+// LF glottal model (Fant, Liljencrants & Lin 1985, STL-QPSR 4/1985)
+// Differentiated flow, Ee = 1, with wg = pi/Tp and an exponential return
+// phase, shape constants from FL85 eq.12 and zero net flow. T0-normalized.
+
+// Fant 1995 (STL-QPSR 36(2-3):119-156) Rd to T0-normalized (te,tp,ta),
+// as implemented in covarep Rd2tetpta.m. 0.3=pressed, 1.0=modal, 2.7=breathy.
+static inline void LfRdToTeTpTa(float rd, float& te, float& tp, float& ta) {
+    float Rap = (-1.0f + 4.8f * rd) * 0.01f;                       // [1](2)
+    float Rkp = (22.4f + 11.8f * rd) * 0.01f;                      // [1](3)
+    float Rgp = 1.0f / (4.0f * ((0.11f * rd / (0.5f + 1.2f * Rkp)) - Rap) / Rkp);  // [1](4)
+    tp = 1.0f / (2.0f * Rgp);                                      // [1] p.121
+    te = tp * (Rkp + 1.0f);                                        // [1] p.121
+    ta = Rap;                                                      // [1] p.121
 }
 
-// polyBLEP band-limited value-step correction (t = phase distance in [0,1), dt = f0/fs).
-// Scale by step/2 at the call site.
-static inline float PolyBlep(float t, float dt) {
-    if (t < dt) {
-        float q = t / dt;
-        return 2.0f * q - q * q - 1.0f;
+// Return-phase constant e from 1 - e^(-e*(1-te)) = e*ta [FL85 eq.12]
+// Bisection on (0, hi), the trivial root at e = 0 excluded
+static inline float LfSolveEps(float te, float ta) {
+    auto fb = [&](float e) { return 1.0f - std::exp(-e * (1.0f - te)) - e * ta; };
+    float lo = 1e-9f;
+    float hi = 1.0f / (ta > 1e-9f ? ta : 1e-9f) + 10.0f;
+    while (fb(hi) > 0.0f) hi *= 2.0f;
+    for (int i = 0; i < 64; i++) {
+        float mid = 0.5f * (lo + hi);
+        if (fb(mid) > 0.0f) lo = mid; else hi = mid;
     }
-    if (t > 1.0f - dt) {
-        float q = (t - 1.0f) / dt;
-        return q * q + 2.0f * q + 1.0f;
-    }
-    return 0.0f;
+    return 0.5f * (lo + hi);
 }
 
-// integral of polyBLEP, for slope kinks
-static inline float PolyBlamp(float t, float dt) {
-    if (t < dt) {
-        float q = t / dt;
-        float o = 1.0f - q;
-        return (dt / 3.0f) * o * o * o;
-    }
-    if (t > 1.0f - dt) {
-        float q = (t - 1.0f) / dt;
-        float o = 1.0f + q;
-        return (dt / 3.0f) * o * o * o;
-    }
-    return 0.0f;
-}
+// Glottal tilt, scales the return-phase quotient Ra = ta/T0 before the
+// shape solves, longer = darker. 1.0 = neutral, 0.3-3.0 spans ~8 dB H1-H2
+static constexpr float kGlotTaScale = 0.6f;
 
-// KLGLOTT pulse + polyBLEP/polyBLAMP corrections for its closure step and slope kinks
-// kills low sample rate foldback
-static inline float GlotPulseBL(int32_t phi, int32_t ne, int32_t phaseInc) {
-    float s = 0.0f;
-    if (phi < ne) {
-        s = GlotPulse((float)phi / (float)ne);
+// Open-phase decay a from zero net flow over the cycle (covarep
+// gfm_spec_lf.m). Scan a log grid for the sign change, then bisect
+static inline float LfSolveAlpha(float te, float tp, float ta, float eps) {
+    float wg = (float)M_PI / tp;
+    float A = (1.0f - std::exp(-eps * (1.0f - te))) / (eps * eps * ta)
+            - (1.0f - te) * std::exp(-eps * (1.0f - te)) / (eps * ta);
+    auto fa = [&](float a) {
+        return (a * a + wg * wg) * std::sin(wg * te) * A
+             + wg * std::exp(-a * te)
+             + a * std::sin(wg * te) - wg * std::cos(wg * te);
+    };
+    static const float xs[10] = {0.0f, 1e1f, 1e2f, 1e3f, 1e4f, 1e5f, 1e6f, 1e7f, 1e8f, 1e9f};
+    float lo = xs[0], hi = xs[9];
+    for (int i = 0; i < 9; i++)
+        if (fa(xs[i]) * fa(xs[i + 1]) < 0.0f) { lo = xs[i]; hi = xs[i + 1]; break; }
+    for (int i = 0; i < 64; i++) {
+        float mid = 0.5f * (lo + hi);
+        if (fa(lo) * fa(mid) <= 0.0f) hi = mid; else lo = mid;
     }
-    float dt = (float)phaseInc * (1.0f / 16777216.0f);
-    if (dt > 0.0f && dt < 1.0f) {
-        float tCl = (float)((phi - ne) & 0xFFFFFF) * (1.0f / 16777216.0f);
-        float tOn = (float)(phi & 0xFFFFFF) * (1.0f / 16777216.0f);
-        float invOq = 16777216.0f / (float)ne;
-        s += (1.0f / 120.0f) * PolyBlep(tCl, dt)
-           + 0.9667f * invOq * PolyBlamp(tCl, dt)
-           - 0.0333f * invOq * PolyBlamp(tOn, dt);
-    }
-    return s;
+    return 0.5f * (lo + hi);
 }
 
 //  Constructor
@@ -263,6 +262,7 @@ KlattSynthesizerFP::KlattSynthesizerFP(int32_t sampleRate) {
     _f4pFreq=_f4pBW=0; _f5pFreq=_f5pBW=0; _f6pFreq=_f6pBW=0;
 
     _voiceTiltBias=0.0f; _openQuotient=50;
+    UpdateLfGlottal();
 }
 
 //  SetVoice 
@@ -354,13 +354,67 @@ void KlattSynthesizerFP::InitFixedFormants() {
     ToQ15(A, B, C, _npA, _npB, _npC);
 }
 
-void KlattSynthesizerFP::ComputeGlotWave(int16_t vGain) {
-    float Oq       = 0.30f + _openQuotient * 0.004f;
-    float chorusOq = Oq + VoiceChorus * 0.0004f;
+void KlattSynthesizerFP::UpdateLfGlottal() {
+    // OpenQuotient slider drives Rd directly, 0->0.3 (pressed), 50->1.0
+    // (modal), 100->2.2 (breathy)
+    float oq = (float)std::max(0, std::min(100, (int)_openQuotient));
+    float rd = (oq <= 50.0f) ? 0.3f + 0.7f * (oq / 50.0f)
+                             : 1.0f + 1.2f * ((oq - 50.0f) / 50.0f);
 
-    _Ne_fp       = std::max((int32_t)655360,  std::min((int32_t)16056320, (int32_t)roundf(Oq       * 16777216.0f)));
-    _chorusNe_fp = std::max((int32_t)655360,  std::min((int32_t)16056320, (int32_t)roundf(chorusOq * 16777216.0f)));
-    _voiceGain_f   = (vGain > 0) ? (vGain * 1140.0f) : 0.0f;
+    float te, tp, ta;
+    LfRdToTeTpTa(rd, te, tp, ta);
+    ta *= kGlotTaScale;
+    // Return phase must fit inside the cycle or the solves break
+    if (te + ta > 0.98f) ta = 0.98f - te;
+    float eps   = LfSolveEps(te, ta);
+    float alpha = LfSolveAlpha(te, tp, ta, eps);
+    float wg    = (float)M_PI / tp;
+    float e0    = -1.0f / (std::exp(alpha * te) * std::sin(wg * te));  // FL85 eq.5, Ee=1
+
+    // Loudness is ~flat across OQ and tilt, fit from rendered RMS over
+    // a (Rd, ta) grid, worst ~2 dB at the bright end
+    float lfBase = 0.0508f + 0.0461f * rd;
+    float lfCorr = 1.0549f - 0.3142f * rd + 6.4298f * ta + 1.3477f * rd * ta
+                 - 6.7109f * ta * ta - 9.5047f * rd * ta * ta;
+    _lfGain = lfBase * lfCorr;
+    _lfTe = te; _lfWg = wg; _lfEps = eps; _lfAlpha = alpha; _lfE0 = e0; _lfTa = ta;
+    _lfOpenScale = e0 / (alpha * alpha + wg * wg);
+    _lfFlowGte = _lfOpenScale * (std::exp(alpha * te) *
+                  (alpha * std::sin(wg * te) - wg * std::cos(wg * te)) + wg);
+    _lfRetExp = std::exp(-eps * (1.0f - te));
+
+    // Open/return boundary in 24-bit phase units, fry-scaled via effNe
+    _Ne_fp = std::max(655360, std::min(16056320, (int32_t)std::round(te * 16777216.0f)));
+    _chorusNe_fp = _Ne_fp;
+}
+
+void KlattSynthesizerFP::ComputeGlotWave(int16_t vGain) {
+    UpdateLfGlottal();
+    _voiceGain_f = (vGain > 0) ? (vGain * 1140.0f) : 0.0f;
+}
+
+// Differentiated LF flow at phase phi (24-bit cycle units), Ee = 1
+// *flowOut receives the flow integral (breathiness gate) when non-null
+// ne is the open/return boundary in phase units, fry-scaled
+float KlattSynthesizerFP::LfPulse(int32_t phi, int32_t ne, float* flowOut) const {
+    const float kInvP24 = 1.0f / 16777216.0f;
+    float tau = (float)phi * kInvP24;
+    float te  = (float)ne * kInvP24;
+    float s = 0.0f, flow = 0.0f;
+    if (tau < te) {
+        float ea = std::exp(_lfAlpha * tau);
+        float sw = std::sin(_lfWg * tau);
+        float cw = std::cos(_lfWg * tau);
+        s = _lfE0 * ea * sw;
+        if (flowOut) flow = _lfOpenScale * (ea * (_lfAlpha * sw - _lfWg * cw) + _lfWg);
+    } else if (tau < 1.0f) {
+        float ed = std::exp(-_lfEps * (tau - te));
+        s = -(1.0f / (_lfEps * _lfTa)) * (ed - _lfRetExp);
+        if (flowOut) flow = _lfFlowGte - (1.0f / (_lfEps * _lfTa))
+                            * ((1.0f - ed) / _lfEps - (tau - te) * _lfRetExp);
+    }
+    if (flowOut) *flowOut = flow;
+    return s;
 }
 
 #ifdef SHARPVOX_SAMPLED_GLOT
@@ -727,6 +781,7 @@ void KlattSynthesizerFP::SynthesizeFrame(Frame frame, int16_t* outputBuffer, int
                 // glottal pulse to ~voiceGain levels, so low VoicingGain produced a
                 // coarse staircase = audible formant-colored noise. Matches float variant.
                 float glotSample;
+                float glotFlow = 0.0f;   // LF flow (breathiness gate)
 
                 if (_fryStallSamples > 0) _fryStallSamples--;
                 int32_t prevPhase = _glotPhase;
@@ -765,7 +820,8 @@ void KlattSynthesizerFP::SynthesizeFrame(Frame frame, int16_t* outputBuffer, int
 #endif
                 {
                     int32_t phi = (int32_t)_glotPhase;
-                    glotSample = GlotPulseBL(phi, effNe, _glotPhaseInc) * _voiceGain_f;
+                    glotSample = LfPulse(phi, effNe, BreathAmt > 0 ? &glotFlow : nullptr)
+                                 * _voiceGain_f * _lfGain;
                 }
 #ifdef SHARPVOX_SAMPLED_GLOT
                 if (VoiceChorus != 0 && !_useSampledGlot) {
@@ -774,9 +830,11 @@ void KlattSynthesizerFP::SynthesizeFrame(Frame frame, int16_t* outputBuffer, int
 #endif
                     _chorusPhase = (_chorusPhaseInc+_chorusPhase) & 0xFFFFFF;
                     int32_t phi2 = (int32_t)_chorusPhase;
-                    float chorus = GlotPulseBL(phi2, _chorusNe_fp, _chorusPhaseInc)
-                                   * _voiceGain_f;
+                    float cFlow = 0.0f;
+                    float chorus = LfPulse(phi2, _chorusNe_fp, BreathAmt > 0 ? &cFlow : nullptr)
+                                   * _voiceGain_f * _lfGain;
                     glotSample = (glotSample + chorus) * 0.5f;
+                    if (BreathAmt > 0) glotFlow = (glotFlow + cFlow) * 0.5f;
                 }
 
 #ifdef SHARPVOX_SAMPLED_GLOT
@@ -786,8 +844,10 @@ void KlattSynthesizerFP::SynthesizeFrame(Frame frame, int16_t* outputBuffer, int
 #endif
                     _diploPhase = (_diploPhase + (_glotPhaseInc >> 1)) & 0xFFFFFF;
                     int32_t phiD = _diploPhase;
-                    glotSample += GlotPulseBL(phiD, effNe, _glotPhaseInc >> 1)
-                                  * _voiceGain_f * (Diplophonia * 0.007f);
+                    float dFlow = 0.0f;
+                    glotSample += LfPulse(phiD, effNe, BreathAmt > 0 ? &dFlow : nullptr)
+                                  * _voiceGain_f * (Diplophonia * 0.007f) * _lfGain;
+                    if (BreathAmt > 0) glotFlow += dFlow;
                 }
 
                 // 1-pole lowpass with corner held at the 22050 anchor
@@ -811,9 +871,9 @@ void KlattSynthesizerFP::SynthesizeFrame(Frame frame, int16_t* outputBuffer, int
                     cascadeInF += sg * (SubglottalAmt * 0.005f);
                 }
 
-                // Cycle-synchronous breathiness.
+                // Cycle-synchronous breathiness gated on the raw LF flow
                 if (BreathAmt > 0) {
-                    float openness = std::max(0.0f, glotSample);
+                    float openness = std::max(0.0f, glotFlow);
                     cascadeInF += (float)(NextNoise()-128) * openness
                                   * (voiceAmpTrem_q8/256.0f) * (BreathAmt * 0.00004f)
                                   * _noiseScale / 8192.0f;

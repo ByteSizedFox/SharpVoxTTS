@@ -59,6 +59,7 @@ namespace SharpVox {
         void    OpenQuotient_set(int16_t value) {
             _openQuotient  = value;
             _voiceTiltBias = (50 - value) * 0.012f;
+            UpdateLfGlottal();
         }
 
         explicit KlattSynthesizerFP(int32_t sampleRate = KDefaultSampleRate);
@@ -177,10 +178,22 @@ namespace SharpVox {
         int32_t _glotPhaseInc;
         int32_t _chorusPhase;
         int32_t _chorusPhaseInc;
-        // Inline polynomial parameters (replace lookup tables — eliminates staircase quantization).
-    int32_t _Ne_fp;          // open-phase end in 24-bit phase units
+        // LF glottal pulse, open/return boundary in 24-bit phase units
+    int32_t _Ne_fp;          // open/return boundary in 24-bit phase units
     int32_t _chorusNe_fp;
-    float   _voiceGain_f;   // vGain * 288.0f (matches float synth _lfGain)
+    float   _voiceGain_f;   // vGain * 1140.0f (voicing amplitude scale)
+
+        // LF glottal model state, T0-normalized so the shape is F0-independent
+        float _lfTe;          // open-phase end Te/T0
+        float _lfWg;          // pi/Tp, open-phase sinusoid rate
+        float _lfEps;         // return-phase time constant e
+        float _lfAlpha;       // open-phase decay a
+        float _lfE0;          // open-phase amplitude, Ee = 1 (FL85 eq.5)
+        float _lfTa;          // return time constant Ta/T0
+        float _lfOpenScale;   // E0/(a^2+wg^2), open-phase flow integral scale
+        float _lfFlowGte;     // flow at t=Te, return-phase flow integral base
+        float _lfRetExp;      // exp(-e*(1-te)), return-phase flow constant
+        float _lfGain;        // source normalization, set in UpdateLfGlottal
 
 #ifdef SHARPVOX_SAMPLED_GLOT
         std::vector<float> _sgBuf;     // resampled glottal source, normalised to max|x|=1
@@ -257,6 +270,8 @@ namespace SharpVox {
         int16_t AdjFormant(int16_t pitch, int32_t formant);
         int32_t NextNoise();
         int32_t NextPinkNoise_q15();
+        void    UpdateLfGlottal();
+        float   LfPulse(int32_t phi, int32_t ne, float* flowOut) const;
 
         // Convert float A/B/C to Q15 int32_t in-place.
         static void ToQ15(float A, float B, float C,
