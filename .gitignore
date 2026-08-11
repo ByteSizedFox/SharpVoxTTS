@@ -16,6 +16,11 @@ platform/wasm/wwwroot/js/sharpvox.wasm
 hello_world
 hello.wav
 
+# NVDA addon build artifacts
+platform/nvda/*.dll
+platform/nvda/build*/
+*.nvda-addon
+
 # Platform artifacts
 build/
 .gradle/

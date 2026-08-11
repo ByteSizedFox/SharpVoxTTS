@@ -1,4 +1,4 @@
-CXX      := x86_64-w64-mingw32-g++
+CXX      ?= x86_64-w64-mingw32-g++
 CXXFLAGS := -std=c++11 -O2 -Wall -I../../include \
             -DSHARPVOX_CAPI_EXPORTS -MMD -MP
 LDFLAGS  :=

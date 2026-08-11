@@ -1,0 +1,111 @@
+name: "Build NVDA addon"
+
+on:
+  workflow_dispatch:
+  push:
+
+concurrency:
+  group: "nvda-addon-build"
+  cancel-in-progress: true
+
+jobs:
+  build-addon-32bit:
+    name: "Build NVDA addon (32-bit)"
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    - name: Disable initramfs update
+      run: sudo sed -i 's/yes/no/g' /etc/initramfs-tools/update-initramfs.conf
+    - name: Disable man-db update
+      run: sudo rm -f /var/lib/man-db/auto-update
+    - name: Install packages
+      run: sudo apt-get update && sudo apt-get install mingw-w64 zip
+    - name: Build addon
+      run: |
+        cd platform/nvda
+        ./build.sh 32
+    - name: Organize artifacts
+      run: |
+        rm -rf addon-32bit
+        mkdir -p addon-32bit
+        cp platform/nvda/SharpVoxTTS-32bit-*.nvda-addon addon-32bit/
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: addon-32bit
+        path: addon-32bit/
+
+  build-addon-64bit:
+    name: "Build NVDA addon (64-bit)"
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    - name: Disable initramfs update
+      run: sudo sed -i 's/yes/no/g' /etc/initramfs-tools/update-initramfs.conf
+    - name: Disable man-db update
+      run: sudo rm -f /var/lib/man-db/auto-update
+    - name: Install packages
+      run: sudo apt-get update && sudo apt-get install mingw-w64 zip
+    - name: Build addon
+      run: |
+        cd platform/nvda
+        ./build.sh 64
+    - name: Organize artifacts
+      run: |
+        rm -rf addon-64bit
+        mkdir -p addon-64bit
+        cp platform/nvda/SharpVoxTTS-64bit-*.nvda-addon addon-64bit/
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: addon-64bit
+        path: addon-64bit/
+
+  release:
+    name: "Release"
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    # Only roll the public "latest" release from the default branch
+    if: github.ref == 'refs/heads/main'
+
+    needs: [build-addon-32bit, build-addon-64bit]
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    - name: Download from build-addon-32bit
+      uses: actions/download-artifact@v4
+      with:
+        name: addon-32bit
+        path: addon-32bit
+    - name: Download from build-addon-64bit
+      uses: actions/download-artifact@v4
+      with:
+        name: addon-64bit
+        path: addon-64bit
+    - name: Delete old release
+      run: gh release delete "latest" --cleanup-tag -y || true
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - name: Collect release assets
+      run: |
+        mkdir -p release-assets
+        cp addon-32bit/*.nvda-addon release-assets/
+        cp addon-64bit/*.nvda-addon release-assets/
+    - name: Release
+      run: gh release create -t "SharpVoxTTS-latest" "latest" release-assets/* -n "Latest SharpVoxTTS NVDA addon builds"
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
