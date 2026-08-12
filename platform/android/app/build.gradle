@@ -2,9 +2,25 @@ plugins {
     alias(libs.plugins.android.application)
 }
 
+def keystoreFileEnv = System.getenv('ANDROID_KEYSTORE_FILE')
+def keystorePasswordEnv = System.getenv('ANDROID_KEYSTORE_PASSWORD')
+def keyAliasEnv = System.getenv('ANDROID_KEY_ALIAS')
+def keyPasswordEnv = System.getenv('ANDROID_KEY_PASSWORD')
+
 android {
     namespace 'dev.bytesizedfox.sharpvoxapp'
     compileSdk 35
+
+    signingConfigs {
+        release {
+            if (keystoreFileEnv) {
+                storeFile file(keystoreFileEnv)
+                storePassword keystorePasswordEnv
+                keyAlias keyAliasEnv
+                keyPassword keyPasswordEnv
+            }
+        }
+    }
 
     defaultConfig {
         applicationId "dev.bytesizedfox.sharpvoxapp"
@@ -25,6 +41,9 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            if (keystoreFileEnv) {
+                signingConfig signingConfigs.release
+            }
         }
     }
     compileOptions {
@@ -40,6 +59,7 @@ android {
     buildFeatures {
         viewBinding true
     }
+    ndkVersion '27.0.12077973'
 }
 
 dependencies {
