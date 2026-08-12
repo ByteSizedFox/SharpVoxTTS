@@ -3,19 +3,6 @@
 <menu xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- action button for copy -->
-
-    <item
-        android:title="Voice"
-        app:showAsAction="ifRoom"
-        android:id="@+id/voiceSettings">
-
-        <menu>
-
-        </menu>
-
-    </item>
-
     <item
         android:id="@+id/activity_system_settings"
         android:title="File"
@@ -32,8 +19,4 @@
                 app:showAsAction="always"/>
         </menu>
     </item>
-
-    <item android:title="Settings"
-        android:id="@+id/activity_settings"
-        app:showAsAction="always"/>
 </menu>

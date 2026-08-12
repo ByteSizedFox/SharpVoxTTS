@@ -66,7 +66,7 @@ Java_dev_bytesizedfox_sharpvoxapp_App_nativeReset(JNIEnv* /*env*/, jobject /*obj
     halting = 0;
 }
 
-static int pitch_slider = 50;
+static int pitch_hz = 0;
 
 extern "C" JNIEXPORT void JNICALL
 Java_dev_bytesizedfox_sharpvoxapp_App_nativeSetRate(JNIEnv* /*env*/, jobject /*obj*/, jint rate) {
@@ -74,8 +74,8 @@ Java_dev_bytesizedfox_sharpvoxapp_App_nativeSetRate(JNIEnv* /*env*/, jobject /*o
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_dev_bytesizedfox_sharpvoxapp_App_nativeSetPitch(JNIEnv* /*env*/, jobject /*obj*/, jint pitch) {
-    pitch_slider = pitch;
+Java_dev_bytesizedfox_sharpvoxapp_App_nativeSetPitch(JNIEnv* /*env*/, jobject /*obj*/, jint pitchHz) {
+    pitch_hz = pitchHz;
 }
 
 extern "C" JNIEXPORT void JNICALL
@@ -84,12 +84,23 @@ Java_dev_bytesizedfox_sharpvoxapp_App_nativeSetVolume(JNIEnv* /*env*/, jobject /
 }
 
 static std::string pending_voice;
+static std::string current_voice = "john";
 
 extern "C" JNIEXPORT void JNICALL
 Java_dev_bytesizedfox_sharpvoxapp_App_nativeSetVoice(JNIEnv* env, jobject /*obj*/, jstring preset) {
     const char* str = env->GetStringUTFChars(preset, nullptr);
     pending_voice = str;
+    current_voice = str;
     env->ReleaseStringUTFChars(preset, str);
+}
+
+extern "C" JNIEXPORT jint JNICALL
+Java_dev_bytesizedfox_sharpvoxapp_App_nativeGetVoicePitchHz(JNIEnv* /*env*/, jobject /*obj*/) {
+    SharpVox::VoiceData voice;
+    if (SharpVox::VoicePresets::TryGet(current_voice, voice)) {
+        return voice.PitchHz;
+    }
+    return SharpVox::VoiceData::baseline_voice().PitchHz;
 }
 
 static void applyPendingVoice() {
@@ -98,16 +109,17 @@ static void applyPendingVoice() {
     SharpVox::VoiceData voice;
     if (SharpVox::VoicePresets::TryGet(pending_voice, voice)) {
         voice.Rate = g_speaker->Rate;
-        float pitchMult = 0.5f + pitch_slider / 100.0f;
-        voice.PitchHz = (int32_t)(voice.PitchHz * pitchMult);
-        g_speaker->ApplyVoiceData(voice);
     } else {
         voice = SharpVox::VoiceData::baseline_voice();
         voice.Rate = g_speaker->Rate;
-        float pitchMult = 0.5f + pitch_slider / 100.0f;
-        voice.PitchHz = (int32_t)(voice.PitchHz * pitchMult);
-        g_speaker->ApplyVoiceData(voice);
     }
+    if (pitch_hz > 0) {
+        int32_t hz = pitch_hz;
+        if (hz < 40) hz = 40;
+        if (hz > 1000) hz = 1000;
+        voice.PitchHz = (int16_t)hz;
+    }
+    g_speaker->ApplyVoiceData(voice);
     pending_voice.clear();
 }
 

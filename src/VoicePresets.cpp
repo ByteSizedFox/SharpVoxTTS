@@ -12,7 +12,7 @@ bool VoicePresets::TryGet(const std::string& name, VoiceData& outVoice) {
     if (lower == "beth") {
         outVoice = VoiceData::baseline_voice();
         outVoice.Rate = 162;
-        outVoice.PitchHz = 476;
+        outVoice.PitchHz = 238;
         outVoice.VoiceType = 1;
         outVoice.TractScale = 1.09f;
         outVoice.VGain = 60;
@@ -40,7 +40,7 @@ bool VoicePresets::TryGet(const std::string& name, VoiceData& outVoice) {
     if (lower == "chris") {
         outVoice = VoiceData::baseline_voice();
         outVoice.Rate = 162;
-        outVoice.PitchHz = 276;
+        outVoice.PitchHz = 138;
         outVoice.VoiceType = 0;
         outVoice.TractScale = 0.99f;
         outVoice.VGain = 58;
@@ -68,7 +68,7 @@ bool VoicePresets::TryGet(const std::string& name, VoiceData& outVoice) {
     if (lower == "deborah") {
         outVoice = VoiceData::baseline_voice();
         outVoice.Rate = 148;
-        outVoice.PitchHz = 336;
+        outVoice.PitchHz = 168;
         outVoice.VoiceType = 1;
         outVoice.TractScale = 1.05f;
         outVoice.VGain = 60;
@@ -96,7 +96,7 @@ bool VoicePresets::TryGet(const std::string& name, VoiceData& outVoice) {
     if (lower == "jack") {
         outVoice = VoiceData::baseline_voice();
         outVoice.Rate = 155;
-        outVoice.PitchHz = 310;
+        outVoice.PitchHz = 155;
         outVoice.VoiceType = 0;
         outVoice.TractScale = 1.02f;
         outVoice.VGain = 58;
@@ -124,7 +124,7 @@ bool VoicePresets::TryGet(const std::string& name, VoiceData& outVoice) {
     if (lower == "jess") {
         outVoice = VoiceData::baseline_voice();
         outVoice.Rate = 166;
-        outVoice.PitchHz = 436;
+        outVoice.PitchHz = 218;
         outVoice.VoiceType = 1;
         outVoice.TractScale = 1.07f;
         outVoice.VGain = 60;
@@ -152,7 +152,7 @@ bool VoicePresets::TryGet(const std::string& name, VoiceData& outVoice) {
     if (lower == "john") {
         outVoice = VoiceData::baseline_voice();
         outVoice.Rate = 158;
-        outVoice.PitchHz = 242;
+        outVoice.PitchHz = 121;
         outVoice.VoiceType = 0;
         outVoice.TractScale = 0.96f;
         outVoice.VGain = 60;
@@ -196,7 +196,7 @@ bool VoicePresets::TryGet(const std::string& name, VoiceData& outVoice) {
     if (lower == "matt") {
         outVoice = VoiceData::baseline_voice();
         outVoice.Rate = 154;
-        outVoice.PitchHz = 172;
+        outVoice.PitchHz = 86;
         outVoice.VoiceType = 0;
         outVoice.TractScale = 0.92f;
         outVoice.VGain = 60;
@@ -223,7 +223,7 @@ bool VoicePresets::TryGet(const std::string& name, VoiceData& outVoice) {
     }
     if (lower == "pirate") {
         outVoice = VoiceData::baseline_voice();
-        outVoice.PitchHz = 282;
+        outVoice.PitchHz = 141;
         outVoice.TractScale = 0.944f;
         outVoice.VoiceType = 0;
         outVoice.Rate = 178;
@@ -267,7 +267,7 @@ bool VoicePresets::TryGet(const std::string& name, VoiceData& outVoice) {
     if (lower == "tommy") {
         outVoice = VoiceData::baseline_voice();
         outVoice.Rate = 164;
-        outVoice.PitchHz = 636;
+        outVoice.PitchHz = 318;
         outVoice.VoiceType = 1;
         outVoice.TractScale = 1.22f;
         outVoice.VGain = 60;
@@ -295,7 +295,7 @@ bool VoicePresets::TryGet(const std::string& name, VoiceData& outVoice) {
     if (lower == "whisper") {
         outVoice = VoiceData::baseline_voice();
         outVoice.Rate = 148;
-        outVoice.PitchHz = 350;
+        outVoice.PitchHz = 175;
         outVoice.VoiceType = 1;
         outVoice.TractScale = 1.0f;
         outVoice.VGain = 0;

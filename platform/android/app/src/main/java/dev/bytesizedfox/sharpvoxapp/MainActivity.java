@@ -7,15 +7,12 @@ import static dev.bytesizedfox.sharpvoxapp.App.writeWavFile;
 import android.app.Activity;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.graphics.Color;
-import android.graphics.drawable.ColorDrawable;
 import android.media.AudioFormat;
 import android.media.AudioTrack;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.speech.tts.TextToSpeech;
-import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -23,15 +20,15 @@ import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
-import android.widget.SeekBar;
 import android.widget.Spinner;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
-import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import com.google.android.material.bottomnavigation.BottomNavigationView;
+import com.google.android.material.slider.Slider;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -46,14 +43,27 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
     private TextToSpeech tts;
 
     public Button speakButton;
+    public Button stopButton;
     public Spinner voiceSpinner;
-    public SeekBar volumeBar;
-    public SeekBar pitchBar;
-    public SeekBar rateBar;
-    public AlertDialog dialog;
+    public Slider volumeBar;
+    public Slider pitchBar;
+    public Slider rateBar;
+    public TextView volumeLabel;
+    public TextView pitchLabel;
+    public TextView rateLabel;
 
     public static void setVolume(int value) {
         App.current_volume = value;
+    }
+
+    private void updateLabels() {
+        volumeLabel.setText("Volume: " + (int) App.current_volume + "%");
+        pitchLabel.setText("Pitch: " + App.getPitchHz() + " Hz");
+        rateLabel.setText("Speed: " + (100 + (App.rate * 5)) + " wpm");
+
+        volumeBar.setStateDescription((int) App.current_volume + " percent");
+        pitchBar.setStateDescription(App.pitch + " percent");
+        rateBar.setStateDescription((100 + (App.rate * 5)) + " words per minute");
     }
 
     @Override
@@ -73,24 +83,31 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
             tts.speak(inputText.getText().toString(), TextToSpeech.QUEUE_FLUSH, null, null);
         });
 
-        initSettings();
+        stopButton = findViewById(R.id.stopButton);
+        stopButton.setOnClickListener(v -> tts.stop());
 
-        if (App.openSettings) {
-            this.showSettings();
-        }
+        BottomNavigationView bottomNav = findViewById(R.id.bottomNav);
+        bottomNav.setOnNavigationItemSelectedListener(item -> {
+            int id = item.getItemId();
+            if (id == R.id.nav_speak) {
+                findViewById(R.id.speakContent).setVisibility(View.VISIBLE);
+                findViewById(R.id.advancedContent).setVisibility(View.GONE);
+                return true;
+            } else if (id == R.id.nav_advanced) {
+                findViewById(R.id.speakContent).setVisibility(View.GONE);
+                findViewById(R.id.advancedContent).setVisibility(View.VISIBLE);
+                return true;
+            }
+            return false;
+        });
+        bottomNav.setSelectedItemId(R.id.nav_speak);
+
+        initSettings();
     }
 
     @Override
     public boolean onCreateOptionsMenu( Menu menu ) {
         getMenuInflater().inflate(R.menu.menu, menu);
-        ArrayAdapter<CharSequence> adapter = ArrayAdapter.createFromResource(
-                this,
-                R.array.voice_names,
-                android.R.layout.simple_spinner_item
-        );
-        for (int i = 0; i < adapter.getCount(); i++) {
-            menu.findItem(R.id.voiceSettings).getSubMenu().add(adapter.getItem(i));
-        }
         return super.onCreateOptionsMenu(menu);
     }
 
@@ -103,18 +120,14 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
     public boolean onOptionsItemSelected( @NonNull MenuItem item ) {
         int id = item.getItemId();
 
-        if (id == R.id.voiceSettings) {
-            return super.onOptionsItemSelected(item);
-        }
-
         EditText inputText = findViewById(R.id.inputText);
         String text = inputText.getText().toString();
         short[] samples = new short[0];
         if (id == R.id.share || id == R.id.export) {
             App.nativeReset();
             App.nativeInit();
-            App.nativeSetRate(100 + (App.rate * 3));
-            App.nativeSetPitch(App.pitch);
+            App.nativeSetRate(100 + (App.rate * 5));
+            App.nativeSetPitch(App.getPitchHz());
             App.nativeSetVoice(App.current_voice);
             samples = App.nativeSpeak(text, false);
         }
@@ -148,18 +161,6 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
             return super.onOptionsItemSelected(item);
         }
 
-        if (this.voiceList.contains(item.getTitle().toString().toLowerCase())) {
-            String name = item.getTitle().toString();
-            App.nativeSetVoice(name.toLowerCase());
-            App.current_voice = name.toLowerCase();
-            Toast.makeText(this, "voice set to " + name, Toast.LENGTH_SHORT).show();
-            tts.speak(item.getTitle(), TextToSpeech.QUEUE_FLUSH, null, null);
-        }
-
-        if (id == R.id.activity_settings) {
-            this.showSettings();
-        }
-
         return super.onOptionsItemSelected(item);
     }
 
@@ -188,15 +189,9 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
             "tommy",
             "whisper"
     );
-    View dialogView;
+    boolean initSelection = true;
     private void initSettings() {
-        AlertDialog.Builder builder = new MaterialAlertDialogBuilder(this);
-        builder.setView(R.layout.settings_overlay);
-
-        dialogView = LayoutInflater.from(this).inflate(R.layout.settings_overlay, null);
-        builder.setView(dialogView);
-
-        voiceSpinner = dialogView.findViewById(R.id.VoiceSpinner);
+        voiceSpinner = findViewById(R.id.VoiceSpinner);
         ArrayAdapter<CharSequence> adapter = ArrayAdapter.createFromResource(
                 this,
                 R.array.voice_names,
@@ -204,12 +199,20 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
         );
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         voiceSpinner.setAdapter(adapter);
+        voiceSpinner.setSelection(voiceList.indexOf(App.current_voice));
+
+        App.nativeSetVoice(App.current_voice);
 
         SharedPreferences pref = this.getSharedPreferences("settings", MODE_PRIVATE);
 
         voiceSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                if (initSelection) {
+                    initSelection = false;
+                    return;
+                }
+
                 updateBars();
 
                 String voiceID = (String) parent.getItemAtPosition(parent.getSelectedItemPosition());
@@ -218,83 +221,65 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
                 tts.speak(voiceID, TextToSpeech.QUEUE_FLUSH, null, null);
 
                 App.current_voice = voiceID.toLowerCase();
+                App.nativeSetPitch(App.getPitchHz());
                 SharedPreferences.Editor editor = pref.edit();
                 editor.putString("voice", App.current_voice);
+                editor.putInt("pitch", App.pitch);
                 editor.apply();
+                updateLabels();
             }
             @Override
             public void onNothingSelected(AdapterView<?> parent) {}
         });
 
 
-        volumeBar = dialogView.findViewById(R.id.volumeBar);
-        volumeBar.setProgress((int)App.current_volume);
-        volumeBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+        volumeBar = findViewById(R.id.volumeBar);
+        volumeBar.setValue(App.current_volume);
+        volumeBar.addOnChangeListener(new Slider.OnChangeListener() {
             @Override
-            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                MainActivity.setVolume(progress);
+            public void onValueChange(Slider slider, float value, boolean fromUser) {
+                MainActivity.setVolume((int) value);
+                updateLabels();
                 SharedPreferences.Editor editor = pref.edit();
-                editor.putFloat("volume", progress);
+                editor.putFloat("volume", value);
                 editor.apply();
             }
-            @Override
-            public void onStartTrackingTouch(SeekBar seekBar) {}
-            @Override
-            public void onStopTrackingTouch(SeekBar seekBar) {}
         });
 
-        pitchBar = dialogView.findViewById(R.id.pitchBar);
-        pitchBar.setProgress(App.pitch);
-        pitchBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+        pitchBar = findViewById(R.id.pitchBar);
+        if (App.pitch < 0 || App.pitch > 100) {
+            App.pitch = 50;
+        }
+        pitchBar.setValue(App.pitch);
+        pitchBar.addOnChangeListener(new Slider.OnChangeListener() {
             @Override
-            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+            public void onValueChange(Slider slider, float value, boolean fromUser) {
                 SharedPreferences.Editor editor = pref.edit();
-                App.pitch = progress;
-                editor.putInt("pitch", progress);
+                App.pitch = (int) value;
+                App.nativeSetPitch(App.getPitchHz());
+                updateLabels();
+                editor.putInt("pitch", (int) value);
                 editor.apply();
             }
-            @Override
-            public void onStartTrackingTouch(SeekBar seekBar) {}
-            @Override
-            public void onStopTrackingTouch(SeekBar seekBar) {}
         });
 
-        rateBar = dialogView.findViewById(R.id.rateBar);
-        rateBar.setProgress(App.rate);
-        rateBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+        rateBar = findViewById(R.id.rateBar);
+        rateBar.setValue(App.rate);
+        rateBar.addOnChangeListener(new Slider.OnChangeListener() {
             @Override
-            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+            public void onValueChange(Slider slider, float value, boolean fromUser) {
                 SharedPreferences.Editor editor = pref.edit();
-                App.rate = progress;
-                editor.putInt("rate", progress);
+                App.rate = (int) value;
+                updateLabels();
+                editor.putInt("rate", (int) value);
                 editor.apply();
             }
-            @Override
-            public void onStartTrackingTouch(SeekBar seekBar) {}
-            @Override
-            public void onStopTrackingTouch(SeekBar seekBar) {}
         });
 
-        builder.setPositiveButton("Continue", (dialog, which) -> {
-            dialog.dismiss();
-        });
-
-        dialog = builder.create();
-        dialog.setCancelable(false);
-        dialog.setCanceledOnTouchOutside(false);
-
-        dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
-
-        Button applySettingsButton = dialogView.findViewById(R.id.ApplySettingsButton);
-        applySettingsButton.setOnClickListener(v -> {
-            App.openSettings = false;
-            dialog.dismiss();
-            if (App.openSettings) {
-                App.openSettings = false;
-                finish();
-            }
-        });
-
+        volumeLabel = findViewById(R.id.volumeLabel);
+        pitchLabel = findViewById(R.id.pitchLabel);
+        rateLabel = findViewById(R.id.rateLabel);
+        updateLabels();
     }
 
     void updateBars() {
@@ -302,7 +287,6 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
             return;
         }
         try {
-            int pitch = Settings.Secure.getInt(getContentResolver(), Settings.Secure.TTS_DEFAULT_PITCH);
             int rate = Settings.Secure.getInt(getContentResolver(), Settings.Secure.TTS_DEFAULT_RATE);
 
             SharedPreferences pref = this.getSharedPreferences("settings", MODE_PRIVATE);
@@ -311,17 +295,12 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
                 App.last_system_rate = rate;
                 App.rate = rate / 4;
                 pref.edit().putInt("last_rate", rate).apply();
-                rateBar.setProgress(rate / 4);
-            }
-            if (pitch != App.last_system_pitch) {
-                App.last_system_pitch = pitch;
-                App.pitch = pitch / 4;
-                pref.edit().putInt("last_pitch", pitch).apply();
-                pitchBar.setProgress(pitch / 4);
+                rateBar.setValue(rate / 4);
             }
         } catch (Exception e) {
             App.supportsAccessibility = false;
         }
+        updateLabels();
     }
 
     @Override
@@ -333,23 +312,6 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
     public void onPause() {
         super.onPause();
         updateBars();
-    }
-
-    private void showSettings() {
-        dialog.show();
-
-        voiceSpinner.setSelection(voiceList.indexOf(App.current_voice));
-        volumeBar.setProgress((int)App.current_volume);
-
-        Button button_negative = dialog.getButton(AlertDialog.BUTTON_NEGATIVE);
-        button_negative.setEnabled(false);
-        button_negative.setAlpha(0);
-        button_negative.setVisibility(View.GONE);
-
-        Button button_positive = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
-        button_positive.setEnabled(false);
-        button_positive.setAlpha(0);
-        button_positive.setVisibility(View.GONE);
     }
 
     @Override

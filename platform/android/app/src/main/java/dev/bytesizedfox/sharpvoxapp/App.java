@@ -33,8 +33,13 @@ public class App extends Application {
     public static native void nativeSetPitch(int pitch);
     public static native void nativeSetVolume(float volume);
     public static native void nativeSetVoice(String preset);
+    public static native int nativeGetVoicePitchHz();
     public static native short[] nativeSpeak(String text, boolean enableCallback);
     public static native void nativeSync(int what);
+
+    public static int getPitchHz() {
+        return (int) (nativeGetVoicePitchHz() * (0.5f + pitch / 100.0f));
+    }
 
     public static boolean isReady = false;
 
@@ -62,6 +67,9 @@ public class App extends Application {
             App.current_volume = pref.getFloat("volume", 50.0f);
             App.pitch = pref.getInt("pitch", 50);
             App.rate = pref.getInt("rate", 50);
+            if (App.pitch < 0 || App.pitch > 100) {
+                App.pitch = 50;
+            }
             App.last_system_pitch = pref.getInt("last_pitch", 0);
             App.last_system_rate = pref.getInt("last_rate", 0);
         } catch (Exception e) {
