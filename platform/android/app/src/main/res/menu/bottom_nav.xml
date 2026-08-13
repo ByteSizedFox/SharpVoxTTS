@@ -2,8 +2,8 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
     <item
         android:id="@+id/nav_speak"
-        android:icon="@drawable/ic_speak"
-        android:title="Speak" />
+        android:icon="@android:drawable/ic_lock_silent_mode_off"
+        android:title="Home" />
 
     <item
         android:id="@+id/nav_advanced"
