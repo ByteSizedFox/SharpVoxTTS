@@ -47,7 +47,7 @@ add_executable(sharptalk_demo
     ${ROOT}/src/SpeechRenderer.cpp
     ${ROOT}/src/TtsEngine.cpp
     ${ROOT}/src/Phonemizer.cpp
-    ${ROOT}/src/LetterToSound.cpp
+    ${ROOT}/src/G2PModel.cpp
     ${ROOT}/src/DictionaryReader.cpp
     ${ROOT}/src/LibraryDataDictionary.cpp
     ${ROOT}/src/LibraryDataSymbols.cpp

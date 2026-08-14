@@ -1,6 +1,5 @@
 #include "../include/Phonemizer.h"
 #include "../include/AudioProcessor.h"
-#include "../include/LetterToSound.h"
 #include "../include/DictionaryReader.h"
 #include "../include/Morphology.h"
 #include "../include/HeteronymResolver.h"
@@ -1226,11 +1225,17 @@ namespace SharpVox {
 
     Phonemizer::Phonemizer(const uint8_t* dictData, size_t dictSize,
                            std::function<const uint8_t*(const std::string&, size_t&)> symbolsTable)
-        : StatDict(0), StatMorph(0), StatLts(0),
+        : StatDict(0), StatMorph(0), StatG2p(0),
           LastEndPunct(_Period_),
           _dict(dictData, dictSize),
-          _symbols(std::move(symbolsTable))
-    {}
+          _symbols(std::move(symbolsTable)),
+          _g2p()
+    {
+        if (!_g2p.Valid()) {
+            fprintf(stderr, "Phonemizer: embedded G2P model failed to load; "
+                            "uncovered words will be skipped\n");
+        }
+    }
 
     void Phonemizer::TextToSentenceTokens(const std::string& text,
             const std::function<void(const std::vector<PhonemeToken>&, int16_t, bool)>& sink) {
@@ -1498,24 +1503,22 @@ namespace SharpVox {
             }
         }
 
-        // 3. Fall back to letter-to-sound rules
-        if (phons.empty()) {
-            std::vector<uint8_t> lts = LetterToSound::Convert(upperWord);
-            StatLts++;
-            // LTS output carries no stress marks, which leaves the word
-            // deaccented (flat, and stealing the phrase nucleus). Assign lexical
-            // stress via the MITalk stress rules and splice the OP_STRESS1 /
-            // OP_STRESS2 opcodes before each marked vowel so they reach the
-            // tokenizer exactly like a dictionary word's stress.
-            std::vector<uint8_t> marks = LetterToSound::AssignStress(lts);
-            phons.reserve(lts.size() + 2);
-            for (int i = 0; i < (int)lts.size(); i++) {
-                if (marks[i] == 1) {
-                    phons.push_back(OP_STRESS1);
-                } else if (marks[i] == 2) {
-                    phons.push_back(OP_STRESS2);
+        // 3. fall back to the embedded G2P model, its output carries no
+        //    stress marks so the MITalk main stress rule assigns them
+        if (phons.empty() && _g2p.Valid()) {
+            std::vector<uint8_t> g2p;
+            if (_g2p.DecodeBest(upperWord, g2p)) {
+                StatG2p++;
+                std::vector<uint8_t> marks = G2PModel::AssignStress(g2p);
+                phons.reserve(g2p.size() + 2);
+                for (int i = 0; i < (int)g2p.size(); i++) {
+                    if (marks[i] == 1) {
+                        phons.push_back(OP_STRESS1);
+                    } else if (marks[i] == 2) {
+                        phons.push_back(OP_STRESS2);
+                    }
+                    phons.push_back(g2p[i]);
                 }
-                phons.push_back(lts[i]);
             }
         }
 

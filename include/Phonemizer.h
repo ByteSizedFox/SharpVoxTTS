@@ -9,6 +9,7 @@
 #include "../include/AudioProcessor.h"
 #include "../include/SynthData.h"
 #include "../include/DictionaryReader.h"
+#include "../include/G2PModel.h"
 
 namespace SharpVox {
 
@@ -16,9 +17,9 @@ namespace SharpVox {
     public:
         int32_t StatDict;
         int32_t StatMorph;
-        int32_t StatLts;
+        int32_t StatG2p;
 
-        void ResetStats() { StatDict = StatMorph = StatLts = 0; }
+        void ResetStats() { StatDict = StatMorph = StatG2p = 0; }
         DictReader& Dict() { return _dict; }
 
         Phonemizer(const uint8_t* dictData, size_t dictSize,
@@ -62,6 +63,7 @@ namespace SharpVox {
     private:
         DictReader _dict;
         std::function<const uint8_t*(const std::string&, size_t&)> _symbols;
+        G2PModel _g2p;
 
         // For all-caps words absent from the dict, inject letter phonemes directly
         // no dict lookup, no LTS. Each letter becomes its own word-boundary token.

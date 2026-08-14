@@ -63,10 +63,10 @@ namespace SharpVox {
         struct LookupStats {
             int32_t dict;
             int32_t morph;
-            int32_t lts;
+            int32_t g2p;
         };
         LookupStats GetLookupStats() const {
-            return { _fe.StatDict, _fe.StatMorph, _fe.StatLts };
+            return { _fe.StatDict, _fe.StatMorph, _fe.StatG2p };
         }
         void ResetLookupStats() { _fe.ResetStats(); }
         DictReader& Dict() { return _fe.Dict(); }

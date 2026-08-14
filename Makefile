@@ -17,7 +17,7 @@ LIB_SRCS := \
     src/SpeechRenderer.cpp \
     src/TtsEngine.cpp \
     src/Phonemizer.cpp \
-    src/LetterToSound.cpp \
+    src/G2PModel.cpp \
     src/DictionaryReader.cpp \
     src/LibraryDataDictionary.cpp \
     src/LibraryDataSymbols.cpp \
