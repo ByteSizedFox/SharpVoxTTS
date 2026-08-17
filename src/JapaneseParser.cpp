@@ -145,15 +145,18 @@ namespace SharpVox {
         return (cp >= 0x3041 && cp <= 0x3096) || cp == 0x30FC;
     }
 
-    // Remap topic/directional particles to their spoken form.
-    // ha (0x306F) and he (0x3078) become wa/e when preceded by any kana.
-    // boundary[i] is set true at remapped positions so vowel-length rules skip them.
+    // Remap は/へ to their spoken form, mark particle boundaries so
+    // vowel-length rules skip them. へ skips if followed by ん, not a particle.
     static void NormalizeParticles(std::vector<uint32_t>& cps, std::vector<bool>& boundary) {
         bool hadKana = false;
         for (size_t i = 0; i < cps.size(); i++) {
             uint32_t cp = cps[i];
             if (cp == 0x306F && hadKana) { cps[i] = 0x308F; boundary[i] = true; }
-            else if (cp == 0x3078 && hadKana) { cps[i] = 0x3048; boundary[i] = true; }
+            else if (cp == 0x3078 && hadKana) {
+                bool followedByN = (i + 1 < cps.size() && cps[i + 1] == 0x3093);
+                if (!followedByN) { cps[i] = 0x3048; boundary[i] = true; }
+            }
+            else if (cp == 0x3092) { boundary[i] = true; }  // を particle
             if (IsHiragana(cp)) hadKana = true;
         }
     }
@@ -332,6 +335,12 @@ namespace SharpVox {
             uint32_t cp = cps[ci];
             if (cp == 0xFFFFFFFF) break;
 
+            // Particle boundary, mark mora break for acoustic model.
+            if (particleBoundary[ci]) wordStart = true;
+
+            // Space or ideographic space, word boundary.
+            if (cp == 0x0020 || cp == 0x3000) wordStart = true;
+
             // Long vowel mark: repeat previous vowel
             if (cp == 0x30FC) {
                 if (lastVowel >= 0) EmitVowel(lastVowel);
@@ -413,9 +422,9 @@ namespace SharpVox {
             EmitVowel((int16_t)m.vowel);
         }
 
-        // OJT Rule 5 devoicing: /i/ and /u/ between voiceless consonant onsets.
-        // Rule 3: consecutive devoiced moras are suppressed.
-        // Exceptions (spirant chains): s->s/sh, f->f/h, h->f/h resist devoicing.
+        // Vowel devoicing, /u/ and /i/ after voiceless onsets or phrase-finally.
+        // /u/ reduces more than /i/, consecutive devoiced moras suppressed.
+        // Spirant exception chains, s->s/sh, f->f/h, h->f/h resist. (Maekawa/CSJ)
         {
             const int64_t kVowelBit = kSecondaryStress | kPrimaryStress;
 
@@ -430,6 +439,16 @@ namespace SharpVox {
                 return false;
             };
 
+            // Graduated reduction, phrase-final is strongest, /u/ devoices more than /i/.
+            // Values in ms within a ~120ms mora budget.
+            auto devoiceDur = [](int16_t phon, bool phraseFinal) -> int16_t {
+                if (phon == J_UH) {
+                    return phraseFinal ? 10 : 22;  // /u/, strong reduction, weak rounding
+                } else {
+                    return phraseFinal ? 18 : 38;  // /i/, more active tongue protects voicing
+                }
+            };
+
             bool prevDevoiced = false;
             for (size_t j = 0; j < out.size(); j++) {
                 bool isVowel = (out[j].Ctrl & kVowelBit) != 0;
@@ -438,11 +457,12 @@ namespace SharpVox {
                 int16_t phon = out[j].Phon;
                 if (phon != J_IY && phon != J_UH) { prevDevoiced = false; continue; }
 
-                // Find onset (first consonant of current mora, scanning backward over cons)
+                // Find immediate consonant before this vowel
                 uint8_t onset = 0xFF;
                 for (size_t jj = j; jj-- > 0;) {
                     if (out[jj].Ctrl & kVowelBit) break;
                     onset = (uint8_t)out[jj].Phon;
+                    break;
                 }
 
                 if (onset == 0xFF || !isVoiceless(onset)) { prevDevoiced = false; continue; }
@@ -455,11 +475,15 @@ namespace SharpVox {
                     break;
                 }
 
-                if (nextCons == 0xFF || !isVoiceless(nextCons)) { prevDevoiced = false; continue; }
-                if (isException(onset, nextCons))                { prevDevoiced = false; continue; }
+                bool phraseFinal = (nextCons == 0xFF);
+                // /u/ devoices with just a voiceless onset (weak rounding bleeds through).
+                // /i/ requires voiceless on both sides (tongue/jaw work protects voicing).
+                bool needsBothSides = (phon == J_IY);
+                if (needsBothSides && !phraseFinal && !isVoiceless(nextCons)) { prevDevoiced = false; continue; }
+                if (!phraseFinal && isException(onset, nextCons)) { prevDevoiced = false; continue; }
                 if (prevDevoiced)                                { prevDevoiced = false; continue; }
 
-                out[j].UserDur = 20;
+                out[j].UserDur = devoiceDur(phon, phraseFinal);
                 prevDevoiced = true;
             }
         }
