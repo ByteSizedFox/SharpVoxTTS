@@ -36,6 +36,9 @@ namespace SharpVox {
     static const uint8_t JP_GEMINATE   = 0xFE;
     static const uint8_t JP_SYLLABIC_N = 0xFD;
     static const uint8_t JP_INVALID    = 0xFF;
+    static const uint8_t JP_ITER       = 0xF8;
+    static const uint8_t JP_ITER_DAKU  = 0xF7;
+    static const uint8_t JP_MIDDLEDOT  = 0xF6;
 
     struct Mora {
         uint8_t c1;          // first consonant, 0xFF = bare vowel
@@ -137,12 +140,19 @@ namespace SharpVox {
             case 0x3094: m.c1 = J_V; m.vowel = vu; break;
             case 0x3095: m.c1 = J_K; m.vowel = va; break;
             case 0x3096: m.c1 = J_K; m.vowel = ve; break;
+            // iteration marks, repeat previous mora (handled in main loop)
+            case 0x309D: m.vowel = JP_ITER;      break;
+            case 0x309E: m.vowel = JP_ITER_DAKU; break;
+            // middle dot, word separator
+            case 0x30FB: m.vowel = JP_MIDDLEDOT; break;
         }
         return m;
     }
 
     static bool IsHiragana(uint32_t cp) {
-        return (cp >= 0x3041 && cp <= 0x3096) || cp == 0x30FC;
+        return (cp >= 0x3041 && cp <= 0x3096) || cp == 0x30FC
+            || cp == 0x309D || cp == 0x309E    // iteration marks
+            || cp == 0x30FB;                    // middle dot
     }
 
     // Remap は/へ to their spoken form, mark particle boundaries so
@@ -206,6 +216,18 @@ namespace SharpVox {
         if (cp == 0x3045) return J_UH;
         if (cp == 0x3047) return J_EH;
         return J_AO; // 0x3049
+    }
+
+    // voiced counterpart of a voiceless onset, dakuten voicing for iteration marks.
+    static uint8_t DakutenOf(uint8_t phon) {
+        if (phon == J_K)  return J_G;
+        if (phon == J_S)  return J_Z;
+        if (phon == J_SH) return J_JH;
+        if (phon == J_T)  return J_D;
+        if (phon == J_CH) return J_JH;
+        if (phon == J_HH) return J_B;
+        if (phon == J_F)  return J_B;
+        return phon;
     }
 
     // Returns the vowel quality ('a','i','u','e','o') at the end of the mora at cps[i].
@@ -294,6 +316,8 @@ namespace SharpVox {
         size_t firstSecondaryIdx = (size_t)-1;
         int32_t consAccum = 0;
         bool    gemClosure = false;
+        uint8_t lastCons = 0xFF;
+        int16_t lastVowelPhon = -1;
 
         // Intrinsic consonant duration (ms) within a 120ms mora budget.
         auto ConsDurMs = [](uint8_t phon) -> int16_t {
@@ -316,6 +340,7 @@ namespace SharpVox {
             int16_t d = gemClosure ? (int16_t)120 : ConsDurMs(phon);
             tok.UserDur = d;
             consAccum += d;
+            lastCons = phon;
             out.push_back(tok);
         };
 
@@ -329,6 +354,7 @@ namespace SharpVox {
             if (firstSecondaryIdx == (size_t)-1) firstSecondaryIdx = out.size();
             out.push_back(tok);
             lastVowel = phon;
+            lastVowelPhon = phon;
         };
 
         for (size_t ci = 0; ci < cps.size(); ci++) {
@@ -344,6 +370,21 @@ namespace SharpVox {
             // Long vowel mark: repeat previous vowel
             if (cp == 0x30FC) {
                 if (lastVowel >= 0) EmitVowel(lastVowel);
+                continue;
+            }
+
+            // middle dot, treat as word separator
+            if (cp == 0x30FB) { wordStart = true; continue; }
+
+            // iteration marks, repeat previous mora, dakuten variant voices the consonant
+            if (cp == 0x309D || cp == 0x309E) {
+                bool daku = (cp == 0x309E);
+                if (lastVowelPhon >= 0) {
+                    if (lastCons != 0xFF) {
+                        EmitCons(daku ? DakutenOf(lastCons) : lastCons);
+                    }
+                    EmitVowel(lastVowelPhon);
+                }
                 continue;
             }
 

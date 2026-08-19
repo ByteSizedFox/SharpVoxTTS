@@ -1123,6 +1123,9 @@ namespace SharpVox {
                 } else if (b1 == 0x80 && b2 == 0x81) { // U+3001 = 、
                     out.push_back({TokKind::ClausePunct, (uint32_t)i, 3});
                     i += 3;
+                } else if (b1 == 0x83 && b2 == 0xBB) { // U+30FB = ・
+                    out.push_back({TokKind::ClausePunct, (uint32_t)i, 3});
+                    i += 3;
                 } else {
                     // Hiragana U+3040-U+309F or katakana U+30A0-U+30F6 or long vowel mark U+30FC
                     auto isHira = [](uint8_t t0, uint8_t t1, uint8_t t2) -> bool {
