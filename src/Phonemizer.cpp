@@ -7,6 +7,7 @@
 #include "../include/LibraryData.h"
 #include "../include/TextCommands.h"
 #include "../include/JapaneseParser.h"
+#include "../include/MeCabReader.h"
 #include <sstream>
 #include <algorithm>
 #include <cctype>
@@ -1075,7 +1076,7 @@ namespace SharpVox {
 
     // Tokenizer  replaces the three identical static std::regex TokenRe objects.
     // Mirrors: (\d+)|([a-zA-Z]+(?:'[a-zA-Z]+)*)|([,;:])|(\.\.\.|\.| !|\?|~)|(\s+)
-    enum class TokKind : uint8_t { Digits, Word, ClausePunct, SentPunct, Space, Hiragana };
+    enum class TokKind : uint8_t { Digits, Word, ClausePunct, SentPunct, Space, Hiragana, Kanji };
     struct Token { TokKind kind; uint32_t pos; uint32_t len; };
 
     static std::vector<Token> TokenizeText(const std::string& s) {
@@ -1114,9 +1115,21 @@ namespace SharpVox {
                 size_t start = i;
                 while (i < n && std::isspace((unsigned char)s[i])) ++i;
                 out.push_back({TokKind::Space, (uint32_t)start, (uint32_t)(i - start)});
-            } else if (c == 0xE3 && i + 2 < n) {
+            } else if ((c == 0xE3 || c == 0xE4 || c == 0xE5 ||
+                        c == 0xE6 || c == 0xE7 || c == 0xE8 ||
+                        c == 0xE9 || c == 0xF0) && i + 2 < n) {
                 uint8_t b1 = (unsigned char)s[i+1];
                 uint8_t b2 = (unsigned char)s[i+2];
+                // CJK Unified Ideographs U+4E00-U+9FFF (E4-E9 xx xx)
+                auto isCJK = [](uint8_t t0, uint8_t) -> bool {
+                    return t0 >= 0xE4 && t0 <= 0xE9;
+                };
+                // Supplementary CJK U+3400-U+4DBF (E3 84-85 xx) and U+F900-U+FAFF (EF A6-AB xx)
+                auto isSupCJK = [](uint8_t t0, uint8_t t1, uint8_t) -> bool {
+                    if (t0 == 0xE3 && t1 >= 0x84 && t1 <= 0x85) return true;
+                    if (t0 == 0xEF && t1 >= 0xA6 && t1 <= 0xAB) return true;
+                    return false;
+                };
                 if (b1 == 0x80 && b2 == 0x82) {       // U+3002 = 。
                     out.push_back({TokKind::SentPunct, (uint32_t)i, 3});
                     i += 3;
@@ -1126,6 +1139,25 @@ namespace SharpVox {
                 } else if (b1 == 0x83 && b2 == 0xBB) { // U+30FB = ・
                     out.push_back({TokKind::ClausePunct, (uint32_t)i, 3});
                     i += 3;
+                } else if (isCJK(c, b1) || isSupCJK(c, b1, b2)) {
+                    // scan through contiguous Japanese characters (CJK, hiragana, katakana, LV mark)
+                    // as one token, reading provider matches compound words across types
+                    size_t start = i;
+                    while (i + 2 < n) {
+                        uint8_t t0 = (unsigned char)s[i];
+                        uint8_t t1 = (unsigned char)s[i+1];
+                        uint8_t t2 = (unsigned char)s[i+2];
+                        bool jJapanese = (t0 == 0xE3);
+                        bool jCJK      = isCJK(t0, t1);
+                        bool jSupCJK   = isSupCJK(t0, t1, t2);
+                        bool jLVMark   = (t0 == 0xE3 && t1 == 0x83 && t2 == 0xBC);
+                        if (jJapanese || jCJK || jSupCJK || jLVMark) {
+                            i += 3;
+                        } else {
+                            break;
+                        }
+                    }
+                    out.push_back({TokKind::Kanji, (uint32_t)start, (uint32_t)(i - start)});
                 } else {
                     // Hiragana U+3040-U+309F or katakana U+30A0-U+30F6 or long vowel mark U+30FC
                     auto isHira = [](uint8_t t0, uint8_t t1, uint8_t t2) -> bool {
@@ -1350,6 +1382,13 @@ namespace SharpVox {
             } else if (t.kind == TokKind::Hiragana) {
                 auto jptoks = JapaneseParser::SpanToPhonemes(normalized, t.pos, t.len);
                 tokens.insert(tokens.end(), jptoks.begin(), jptoks.end());
+            } else if (t.kind == TokKind::Kanji) {
+                std::string span = normalized.substr(t.pos, t.len);
+                std::string readings = MeCabReader::ExtractReadings(span);
+                if (!readings.empty()) {
+                    auto jptoks = JapaneseParser::SpanToPhonemes(readings, 0, readings.size());
+                    tokens.insert(tokens.end(), jptoks.begin(), jptoks.end());
+                }
             } else if (t.kind == TokKind::ClausePunct) {
                 PhonemeToken tok;
                 tok.Phon = _SIL_;
@@ -1418,6 +1457,13 @@ namespace SharpVox {
                 } else if (t.kind == TokKind::Hiragana) {
                     auto jptoks = JapaneseParser::SpanToPhonemes(normalized, t.pos, t.len);
                     tokens.insert(tokens.end(), jptoks.begin(), jptoks.end());
+                } else if (t.kind == TokKind::Kanji) {
+                    std::string span = normalized.substr(t.pos, t.len);
+                    std::string readings = MeCabReader::ExtractReadings(span);
+                    if (!readings.empty()) {
+                        auto jptoks = JapaneseParser::SpanToPhonemes(readings, 0, readings.size());
+                        tokens.insert(tokens.end(), jptoks.begin(), jptoks.end());
+                    }
                 } else if (t.kind == TokKind::ClausePunct) {
                     PhonemeToken tok;
                     tok.Phon = _SIL_;

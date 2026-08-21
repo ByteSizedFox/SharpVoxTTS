@@ -155,8 +155,8 @@ namespace SharpVox {
             || cp == 0x30FB;                    // middle dot
     }
 
-    // Remap は/へ to their spoken form, mark particle boundaries so
-    // vowel-length rules skip them. へ skips if followed by ん, not a particle.
+    // remap は/へ to their spoken form, mark particle boundaries so vowel-length rules skip them,
+    // へ skips if followed by ん (not a particle)
     static void NormalizeParticles(std::vector<uint32_t>& cps, std::vector<bool>& boundary) {
         bool hadKana = false;
         for (size_t i = 0; i < cps.size(); i++) {
@@ -252,10 +252,8 @@ namespace SharpVox {
         return 0;
     }
 
-    // True when cp is a bare hiragana vowel that lengthens a mora of quality prevQ.
-    // Rules: same vowel repeats; ou -> o:; ei -> e:
-    // Small forms (0x3041/3043/3045/3047/3049) are excluded: they are loanword modifiers,
-    // not lengthening vowels, and matching them here corrupts e.g. ti (te+small-i) to te:.
+    // true when cp is a bare hiragana vowel that lengthens a mora of quality prevQ,
+    // rules: same vowel repeats, ou -> o:, ei -> e:, small forms excluded as loanword modifiers
     static bool IsLengtheningVowel(char prevQ, uint32_t cp) {
         if (prevQ == 0) return false;
         char q = 0;
@@ -268,9 +266,8 @@ namespace SharpVox {
         return (prevQ == q) || (prevQ == 'o' && q == 'u') || (prevQ == 'e' && q == 'i');
     }
 
-    // Replaces length-marking vowels (ou, ei, aa, ii, uu, ee, oo) with the long
-    // vowel mark so the main loop treats them as duration extensions.
-    // Skips positions marked in boundary (particle-remapped codepoints).
+    // replaces length-marking vowels (ou, ei, aa, ii, uu, ee, oo) with the long vowel mark so the
+    // main loop treats them as duration extensions, skips positions marked in boundary (particle-remapped codepoints)
     static void NormalizeVowelLength(std::vector<uint32_t>& cps,
                                      const std::vector<bool>& boundary) {
         for (size_t i = 0; i + 1 < cps.size(); i++) {
@@ -280,14 +277,16 @@ namespace SharpVox {
             if (q == 0) continue;
             bool yoonConsumed = IsSmallYoon(peek) && LookupMora(cps[i]).yoon_base;
             size_t nextIdx = yoonConsumed ? i + 2 : i + 1;
-            if (nextIdx < cps.size() && !boundary[nextIdx] && IsLengtheningVowel(q, cps[nextIdx])) {
+            if (nextIdx < cps.size() && !boundary[nextIdx]
+                && IsLengtheningVowel(q, cps[nextIdx])) {
                 cps[nextIdx] = 0x30FC;
             }
         }
     }
 
     std::vector<PhonemeToken> JapaneseParser::SpanToPhonemes(
-            const std::string& text, size_t pos, size_t len) {
+            const std::string& text, size_t pos, size_t len,
+            bool normalizeParticles) {
         std::vector<PhonemeToken> out;
 
         const unsigned char* s = (const unsigned char*)text.c_str() + pos;
@@ -307,7 +306,9 @@ namespace SharpVox {
             if (cp >= 0x30A1 && cp <= 0x30F6) cp -= 0x60;
         }
         std::vector<bool> particleBoundary(cps.size(), false);
-        NormalizeParticles(cps, particleBoundary);
+        if (normalizeParticles) {
+            NormalizeParticles(cps, particleBoundary);
+        }
         NormalizeVowelLength(cps, particleBoundary);
 
         bool geminate  = false;

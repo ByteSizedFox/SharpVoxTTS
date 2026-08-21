@@ -14,7 +14,8 @@ namespace SharpVox {
     class JapaneseParser {
     public:
         static std::vector<PhonemeToken> SpanToPhonemes(const std::string& text,
-                                                         size_t pos, size_t len);
+                                                         size_t pos, size_t len,
+                                                         bool normalizeParticles = true);
 
         // Map a single hiragana codepoint to a sequence of phoneme IDs.
         // Supports basic moras, voiced versions, and small tsu (geminate).

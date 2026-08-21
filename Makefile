@@ -26,7 +26,9 @@ LIB_SRCS := \
     src/TextCommands.cpp \
     src/KlattschParser.cpp \
     src/VoicePresets.cpp \
-    src/JapaneseParser.cpp
+    src/JapaneseParser.cpp \
+    src/MeCabReader.cpp \
+    src/IpadicDict.cpp
 
 LIB_OBJS := $(LIB_SRCS:.cpp=.o)
 
@@ -108,7 +110,7 @@ $(ARCHIVE): $(LIB_OBJS)
 platform/cli/%.o: platform/cli/%.cpp
 	$(CXX) $(CLI_CXXFLAGS) -c $< -o $@
 
-# Pattern rule: compile .cpp → .o (applies to src/, platform/lib/)
+# Pattern rule: compile .cpp -> .o (applies to src/, platform/lib/)
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
@@ -119,7 +121,9 @@ platform/lib/%.o: platform/lib/%.cpp
 -include $(LIB_OBJS:.o=.d) $(CLI_OBJS:.o=.d) $(SHLIB_OBJS:.o=.d)
 
 wasm:
-	$(EMCC) $(EMCCFLAGS) $(WASM_SRCS) -o $(WASM_OUT)
+	$(EMCC) $(EMCCFLAGS) $(WASM_SRCS) \
+		--embed-file $(IPADIC_BIN)@ipadic.bin \
+		-o $(WASM_OUT)
 
 wasm-host: wasm
 	python3 -m http.server 8080 --directory platform/wasm/wwwroot
