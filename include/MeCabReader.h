@@ -7,7 +7,7 @@ namespace SharpVox {
 
     class MeCabReader {
     public:
-        static bool Init(const char* dicdir = nullptr);
+        static bool Init();
 
         static void Shutdown();
         static bool IsAvailable();

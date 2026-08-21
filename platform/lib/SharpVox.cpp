@@ -5,7 +5,9 @@
 
 #include "../../include/TtsEngine.h"
 #include "../../include/LibraryData.h"
+#ifdef HAVE_MECAB
 #include "../../include/MeCabReader.h"
+#endif
 
 namespace SharpVox {
 
@@ -19,7 +21,9 @@ SharpVoxSpeaker::SharpVoxSpeaker()
     : _engine(BuildVoice(), LibraryData::dictionary,
               static_cast<size_t>(LibraryData::dictionarySize),
               MakeSymbolsLookup(), SampleRate) {
+#ifdef HAVE_MECAB
     MeCabReader::Init();
+#endif
 }
 
 std::string SharpVoxSpeaker::PrepareText(const std::string& text) {

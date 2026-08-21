@@ -1,59 +1,16 @@
 #include "../include/MeCabReader.h"
 #include "../include/IpadicDict.h"
-#include <cstdio>
-#include <cstdlib>
 
 namespace SharpVox {
 
     static IpadicDict s_dict;
 
-    bool MeCabReader::Init(const char* dicdir) {
+    extern const uint8_t kIpadicData[];
+    extern const size_t kIpadicDataSize;
+
+    bool MeCabReader::Init() {
         Shutdown();
-
-        std::string path;
-        if (dicdir) {
-            path = dicdir;
-            if (!path.empty() && path.back() != '/' && path.back() != '\\') {
-                path += '/';
-            }
-            path += "ipadic.bin";
-        } else {
-            path = "ipadic.bin";
-        }
-
-        FILE* f = std::fopen(path.c_str(), "rb");
-        if (!f) {
-            return false;
-        }
-
-        std::fseek(f, 0, SEEK_END);
-        long fsize = std::ftell(f);
-        std::fseek(f, 0, SEEK_SET);
-
-        if (fsize <= 0) {
-            std::fclose(f);
-            return false;
-        }
-
-        uint8_t* buf = (uint8_t*)std::malloc((size_t)fsize);
-        if (!buf) {
-            std::fclose(f);
-            return false;
-        }
-
-        size_t rd = std::fread(buf, 1, (size_t)fsize, f);
-        std::fclose(f);
-
-        if (rd != (size_t)fsize) {
-            std::free(buf);
-            return false;
-        }
-
-        if (!s_dict.Load(buf, (size_t)fsize)) {
-            std::free(buf);
-            return false;
-        }
-        return true;
+        return s_dict.Load(kIpadicData, kIpadicDataSize);
     }
 
     void MeCabReader::Shutdown() {

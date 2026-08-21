@@ -8,6 +8,8 @@ UNAME := $(shell uname)
 CLI_CXXFLAGS := $(CXXFLAGS)
 CLI_LDLIBS   := $(LDLIBS)
 
+HAVE_MECAB ?= 1
+
 # Library sources (all files shared by both targets)
 LIB_SRCS := \
     src/Tables.cpp \
@@ -26,9 +28,12 @@ LIB_SRCS := \
     src/TextCommands.cpp \
     src/KlattschParser.cpp \
     src/VoicePresets.cpp \
-    src/JapaneseParser.cpp \
-    src/MeCabReader.cpp \
-    src/IpadicDict.cpp
+    src/JapaneseParser.cpp
+
+ifeq ($(HAVE_MECAB),1)
+LIB_SRCS += src/MeCabReader.cpp src/IpadicDict.cpp src/IpadicData.cpp
+CXXFLAGS += -DHAVE_MECAB
+endif
 
 LIB_OBJS := $(LIB_SRCS:.cpp=.o)
 
@@ -67,7 +72,7 @@ WASM_SRCS := $(LIB_SRCS) \
 WASM_OUT  := platform/wasm/wwwroot/js/sharpvox.js
 
 EMCC      := emcc
-EMCCFLAGS := -std=c++17 -O2 -Iinclude -DSHARPVOX_SAMPLED_GLOT \
+EMCCFLAGS := -std=c++17 -O2 -Iinclude -DSHARPVOX_SAMPLED_GLOT -DHAVE_MECAB \
     --bind \
     -fwasm-exceptions \
     -sALLOW_MEMORY_GROWTH=1 \
@@ -122,7 +127,6 @@ platform/lib/%.o: platform/lib/%.cpp
 
 wasm:
 	$(EMCC) $(EMCCFLAGS) $(WASM_SRCS) \
-		--embed-file $(IPADIC_BIN)@ipadic.bin \
 		-o $(WASM_OUT)
 
 wasm-host: wasm

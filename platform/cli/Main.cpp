@@ -16,7 +16,9 @@
 
 #include "../../include/LibraryData.h"
 #include "../../include/TtsEngine.h"
+#ifdef HAVE_MECAB
 #include "../../include/MeCabReader.h"
+#endif
 #include "WavWriter.h"
 #ifdef HAVE_ALSA
 #include "AlsaPlayer.h"
@@ -355,7 +357,9 @@ int main(int argc, char* argv[]) {
     }
     voice.Rate = static_cast<int16_t>(rate);
 
+#ifdef HAVE_MECAB
     MeCabReader::Init();
+#endif
 
     TtsEngine* engine = nullptr;
     try {

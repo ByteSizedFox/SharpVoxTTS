@@ -1,6 +1,6 @@
 CXX      ?= x86_64-w64-mingw32-g++
 CXXFLAGS := -std=c++11 -O2 -Wall -I../../include \
-            -DSHARPVOX_CAPI_EXPORTS -MMD -MP
+            -DSHARPVOX_CAPI_EXPORTS -DHAVE_MECAB -MMD -MP
 LDFLAGS  :=
 LDLIBS   := -lm -static
 
@@ -24,7 +24,10 @@ LIB_SRCS := \
     $(ROOT)/src/TextCommands.cpp \
     $(ROOT)/src/KlattschParser.cpp \
     $(ROOT)/src/VoicePresets.cpp \
-    $(ROOT)/src/JapaneseParser.cpp
+    $(ROOT)/src/JapaneseParser.cpp \
+    $(ROOT)/src/MeCabReader.cpp \
+    $(ROOT)/src/IpadicDict.cpp \
+    $(ROOT)/src/IpadicData.cpp
 
 WRAP_SRCS := \
     $(ROOT)/platform/lib/SharpVox.cpp

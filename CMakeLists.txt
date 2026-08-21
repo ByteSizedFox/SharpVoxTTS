@@ -5,6 +5,7 @@ file(GLOB SOURCES src/*.cpp platform/lib/*.cpp)
 
 add_library(sharpvox STATIC ${SOURCES})
 target_include_directories(sharpvox PUBLIC include)
+target_compile_definitions(sharpvox PUBLIC HAVE_MECAB)
 
 if(NOT CMAKE_SYSTEM_NAME STREQUAL "Windows")
 	target_link_libraries(sharpvox PUBLIC m)
