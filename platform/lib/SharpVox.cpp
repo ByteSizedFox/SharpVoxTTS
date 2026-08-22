@@ -55,7 +55,7 @@ const int16_t* SharpVoxSpeaker::ScaleForVolume(const int16_t* buf, int32_t len) 
     if (std::fabs(vol - 1.0f) < 0.001f || len <= 0) {
         return buf;
     }
-    static thread_local std::vector<int16_t> scratch;
+    std::vector<int16_t>& scratch = _scaleScratch;
     scratch.resize(static_cast<size_t>(len));
     for (int32_t i = 0; i < len; ++i) {
         float v = buf[i] * vol;

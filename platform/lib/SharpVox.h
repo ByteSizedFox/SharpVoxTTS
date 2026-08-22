@@ -245,6 +245,7 @@ private:
 
     std::vector<PhonemeEvent> _phonemeEvents;
     std::vector<FormantEvent> _formantEvents;
+    std::vector<int16_t> _scaleScratch;  // gain staging output buffer
     int32_t _nextPhonemeIndex = 0;
     int32_t _nextFormantIndex = 0;
     float _pollElapsed = 0.0f;
