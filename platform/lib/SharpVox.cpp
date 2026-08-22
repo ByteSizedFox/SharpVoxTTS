@@ -5,6 +5,7 @@
 
 #include "../../include/TtsEngine.h"
 #include "../../include/LibraryData.h"
+#include "../../include/KlattschParser.h"
 #ifdef HAVE_MECAB
 #include "../../include/MeCabReader.h"
 #endif
@@ -308,6 +309,12 @@ void SharpVoxSpeaker::ApplyVoiceData(const VoiceData& v) {
     _engine = TtsEngine(v, LibraryData::dictionary,
                         static_cast<size_t>(LibraryData::dictionarySize),
                         MakeSymbolsLookup(), SampleRate);
+}
+
+const char* SharpVoxSpeaker::PhonemeName(int16_t phoneme) {
+    static const auto& names = KlattschParser::GetPhonemeNamesTable();
+    auto it = names.find(phoneme);
+    return it == names.end() ? nullptr : it->second.c_str();
 }
 
 }  // namespace SharpVox

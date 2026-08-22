@@ -37,6 +37,9 @@ public:
     // Polls pending phoneme events up to absoluteSeconds and fires OnPhoneme for each
     void PollAbsolute(float absoluteSeconds);
 
+    // Symbolic name for a phoneme id, or nullptr if unnamed/unknown
+    static const char* PhonemeName(int16_t phoneme);
+
     // Callback fired by PollAbsolute for each due phoneme event
     std::function<void(const PhonemeEvent&)> OnPhoneme;
     // additional formant callback
