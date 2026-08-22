@@ -129,6 +129,39 @@ jobs:
         name: android-release
         path: android-release/
 
+  build-rp2350:
+    name: "Build RP2350 UF2"
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    - name: install the toolchain
+      run: sudo apt-get update && sudo apt-get install gcc-arm-none-eabi
+    - name: Fetch pico-sdk and pico-extras
+      run: |
+        git clone --depth=1 --branch 2.2.0 --recursive --shallow-submodules \
+          https://github.com/raspberrypi/pico-sdk "$HOME/pico-sdk"
+        git clone --depth=1 \
+          https://github.com/raspberrypi/pico-extras "$HOME/pico-extras"
+    - name: Build
+      run: |
+        cmake -B build -S platform/rp2350
+        make -C build -j"$(nproc)"
+    - name: Organize artifact
+      run: |
+        rm -rf rp2350-release
+        mkdir -p rp2350-release
+        cp build/sharptalk_demo.uf2 rp2350-release/SharpVoxTTS-rp2350.uf2
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: rp2350-release
+        path: rp2350-release/
+
   release:
     name: "Release"
     runs-on: ubuntu-latest
@@ -139,7 +172,7 @@ jobs:
     # Only roll the public "latest" release from the default branch
     if: github.ref == 'refs/heads/main'
 
-    needs: [build-addon-32bit, build-addon-64bit, build-android]
+    needs: [build-addon-32bit, build-addon-64bit, build-android, build-rp2350]
 
     steps:
     - name: Checkout
@@ -159,6 +192,11 @@ jobs:
       with:
         name: android-release
         path: android-release
+    - name: Download from build-rp2350
+      uses: actions/download-artifact@v4
+      with:
+        name: rp2350-release
+        path: rp2350-release
     - name: Delete old release
       run: gh release delete "latest" --cleanup-tag -y || true
       env:
@@ -169,7 +207,8 @@ jobs:
         cp addon-32bit/*.nvda-addon release-assets/
         cp addon-64bit/*.nvda-addon release-assets/
         cp android-release/SharpVoxTTS-release.apk release-assets/
+        cp rp2350-release/SharpVoxTTS-rp2350.uf2 release-assets/
     - name: Release
-      run: gh release create -t "SharpVoxTTS-latest" "latest" release-assets/* -n "Latest SharpVoxTTS NVDA addon and Android APK builds"
+      run: gh release create -t "SharpVoxTTS-latest" "latest" release-assets/* -n "Latest SharpVoxTTS NVDA addon, Android APK and RP2350 builds"
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
